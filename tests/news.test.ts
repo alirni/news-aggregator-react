@@ -4,12 +4,14 @@ import { guardianArticle, newsApiArticle, nytArticle } from './fixtures.js';
 
 const fetchMock = vi.fn<typeof fetch>();
 beforeEach(() => {
+  vi.spyOn(console, 'error').mockImplementation(() => {});
   vi.stubGlobal('fetch', fetchMock);
   vi.stubEnv('NEWS_API_KEY', 'test');
   vi.stubEnv('GUARDIAN_API_KEY', 'test');
   vi.stubEnv('NYT_API_KEY', 'test');
 });
 afterEach(() => {
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
   fetchMock.mockReset();
@@ -45,6 +47,8 @@ it('reports every failed provider without exposing raw errors', async () => {
   expect(result.articles).toEqual([]);
   expect(result.failures).toHaveLength(3);
   expect(JSON.stringify(result)).not.toContain('secret');
+  expect(console.error).toHaveBeenCalledTimes(3);
+  expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain('secret');
 });
 
 it('queries only the provider for the selected publication', async () => {
@@ -72,4 +76,11 @@ it('returns fixed publications when the NewsAPI source catalog fails', async () 
   const result = await getSources();
   expect(result.sources.map((source) => source.id)).toEqual(['guardian', 'nyt']);
   expect(result.failures).toEqual([{ provider: 'newsapi', code: 'rate_limited', message: 'Request limit reached. Please try again later.' }]);
+  expect(console.error).toHaveBeenCalledWith('[sources] newsapi HTTP 429 rate_limited: Request limit reached. Please try again later.');
+});
+
+it('logs the provider, HTTP status, and safe failure reason in the terminal', async () => {
+  fetchMock.mockResolvedValue(new Response('upstream URL with secret key', { status: 401 }));
+  await getNews({ source: 'nyt' });
+  expect(console.error).toHaveBeenCalledExactlyOnceWith('[news] nyt HTTP 401 unauthorized: API key was rejected or lacks access.');
 });

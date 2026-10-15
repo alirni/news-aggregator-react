@@ -28,6 +28,8 @@ Set these server-side variables before requesting news:
 
 Restart the server after editing `.env`. Missing or rejected keys are reported per provider; working providers still return articles.
 
+Provider failures also appear in the terminal running `npm run dev` or `npm start`, with the provider, operation, HTTP status (when available), and a safe error message. For example: `[news] nyt HTTP 401 unauthorized: API key was rejected or lacks access.` Raw upstream responses, request URLs, and credentials are not logged.
+
 ## API
 
 `GET /api/news` returns `{ articles, failures }`. Optional query parameters:

@@ -10,10 +10,13 @@ const providers = [
   { id: 'nyt', fetch: fetchNyt },
 ] as const;
 
-function failure(provider: Provider, error: unknown): ProviderFailure {
-  return error instanceof ProviderError
+function failure(provider: Provider, error: unknown, operation: 'news' | 'sources'): ProviderFailure {
+  const result: ProviderFailure = error instanceof ProviderError
     ? { provider, code: error.code, message: error.message }
     : { provider, code: 'unavailable', message: 'News provider returned an unexpected response.' };
+  const status = error instanceof ProviderError && error.status ? ` HTTP ${error.status}` : '';
+  console.error(`[${operation}] ${provider}${status} ${result.code}: ${result.message}`);
+  return result;
 }
 
 export async function getNews(query: NewsQuery): Promise<NewsResponse> {
@@ -24,7 +27,7 @@ export async function getNews(query: NewsQuery): Promise<NewsResponse> {
   const failures: ProviderFailure[] = [];
   results.forEach((result, index) => {
     if (result.status === 'fulfilled') articles.push(...result.value);
-    else failures.push(failure(selected[index].id, result.reason));
+    else failures.push(failure(selected[index].id, result.reason, 'news'));
   });
   const filtered = articles.filter((article) => {
     const day = article.publishedAt.slice(0, 10);
@@ -44,7 +47,7 @@ export async function getSources(): Promise<SourcesResponse> {
   try {
     sources.push(...await fetchNewsApiSources());
   } catch (error) {
-    failures.push(failure('newsapi', error));
+    failures.push(failure('newsapi', error, 'sources'));
   }
   return { sources: sources.sort((a, b) => a.name.localeCompare(b.name)), failures };
 }
