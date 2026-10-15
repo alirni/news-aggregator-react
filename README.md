@@ -71,6 +71,14 @@ Shared response types are in `shared/news.ts`. Provider adapters are in `server/
 
 ## Checks and builds
 
+Run every required automated check with:
+
+```sh
+npm run check
+```
+
+Or run them individually:
+
 ```sh
 npm run lint
 npm run typecheck
@@ -80,5 +88,17 @@ npm start
 ```
 
 Tests use synthetic provider fixtures and mocked requests, so they need no API keys or network access. They cover parameter mapping, normalization, validation, merging, filtering, partial failures, feed rendering/retry behavior, combined search filters, reset, invalid dates, catalog failures, stale responses, preference semantics/persistence, unavailable storage, and separation of search from the personalized feed. Frontend tests use React Testing Library with jsdom.
+
+The user-flow tests additionally exercise keyboard navigation with Testing Library user-event, retry after a network failure, sorting and deduplication across preference requests, switching to search while the personalized feed is loading, and resetting search without changing saved preferences. Use `npm run test:watch` during development.
+
+### Browser verification
+
+jsdom does not calculate visual layout. Check these flows in a real browser after `npm run dev`:
+
+- At 320px, 390px, 768px, and 1440px widths, confirm no horizontal scrolling, readable cards, and usable search/preference controls. The article grid uses one, two, or three columns as space allows.
+- Use Tab to reach **Skip to news**, then Enter to focus the main content. Continue through search inputs, submit with Enter, expand preferences, and toggle checkboxes with Space. Focus should remain visible.
+- Submit combined filters, reject an inverted date range, reset filters, and open an article at its original publication.
+- Save preferences, reload to confirm they persist, submit search to see independent results, return with **My feed**, and reset preferences.
+- With mocked or unavailable providers, check partial results, complete failure, retry recovery, empty results, and missing/failed image fallbacks. Automated tests cover these states without consuming API quotas.
 
 The build outputs frontend files to `dist/client`, the server to `dist/server`, and shared modules to `dist/shared`. At this stage, `npm start` runs the API only. Serving the built frontend and Docker instructions will be added in the final packaging step.
