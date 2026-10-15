@@ -1,19 +1,13 @@
 import type { Article, NewsQuery, NewsResponse, Provider } from '../../shared/news';
+import { getNews } from '../api/news';
 
 export interface NewsResult extends NewsResponse {
   status: 'success' | 'error';
 }
 
 async function requestNews(query: NewsQuery, signal: AbortSignal) {
-  const params = new URLSearchParams();
-  for (const [key, value] of Object.entries(query)) {
-    if (value) params.set(key, value);
-  }
-  const response = await fetch(`/api/news${params.size ? `?${params}` : ''}`, { signal });
-  if (!response.ok && response.status !== 502) throw new Error('Request failed');
-  const data = await response.json() as NewsResponse;
-  if (!Array.isArray(data.articles) || !Array.isArray(data.failures)) throw new Error('Invalid response');
-  return { ...data, ok: response.ok };
+  const data = await getNews(query, signal);
+  return { ...data, ok: data.failures.length < (query.source ? 1 : 3) };
 }
 
 export async function loadNews(queries: NewsQuery[], signal: AbortSignal): Promise<NewsResult> {

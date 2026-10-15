@@ -3,8 +3,11 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import App from '../src/App';
+import { getNews, getSources } from '../src/api/news';
 import type { Article, NewsResponse } from '../shared/news';
 import { emptyPreferences, preferencesKey } from '../src/lib/preferences';
+
+vi.mock('../src/api/news', () => ({ getNews: vi.fn(), getSources: vi.fn() }));
 
 const sources = [
   { id: 'guardian', name: 'The Guardian', provider: 'guardian' as const },
@@ -15,17 +18,16 @@ const articles: Article[] = [
   { id: '2', url: 'https://example.com/2', provider: 'nyt', source: sources[1], title: 'Sam sports story', category: 'sports', authors: ['Sam'], publishedAt: '2026-10-14T13:00:00Z' },
   { id: '3', url: 'https://example.com/3', provider: 'nyt', source: sources[1], title: 'Alex sports story', category: 'sports', authors: ['Alex'], publishedAt: '2026-10-14T14:00:00Z' },
 ];
-const news = vi.fn<typeof fetch>();
+const news = vi.mocked(getNews);
 beforeEach(() => {
   localStorage.clear();
-  news.mockImplementation(async () => Response.json({ articles, failures: [] }));
-  vi.stubGlobal('fetch', (url: string, options?: RequestInit) => url === '/api/sources'
-    ? Promise.resolve(Response.json({ sources, failures: [] })) : news(url, options));
+  news.mockImplementation(async () => ({ articles, failures: [] }));
+  vi.mocked(getSources).mockResolvedValue({ sources, failures: [] });
 });
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
-  vi.unstubAllGlobals();
+  vi.mocked(getSources).mockReset();
   news.mockReset();
   localStorage.clear();
 });
@@ -49,7 +51,7 @@ it('saves selected groups, requests each combination once, and filters the merge
   await waitFor(() => expect(screen.getAllByRole('article')).toHaveLength(2));
   expect(screen.queryByRole('link', { name: /Sam sports story/ })).not.toBeInTheDocument();
   expect(news).toHaveBeenCalledTimes(5);
-  expect(new Set(news.mock.calls.slice(1).map(([url]) => url)).size).toBe(4);
+  expect(new Set(news.mock.calls.slice(1).map(([query]) => JSON.stringify(query))).size).toBe(4);
   expect(JSON.parse(localStorage.getItem(preferencesKey)!)).toEqual({ sources: ['guardian', 'nyt'], categories: ['science', 'sports'], authors: ['Alex'] });
 });
 
@@ -57,13 +59,13 @@ it('restores preferences on mount, preserves saved authors, and resets them', as
   localStorage.setItem(preferencesKey, JSON.stringify({ sources: ['guardian'], categories: ['science'], authors: ['Saved author'] }));
   render(<App />);
   await screen.findByText(/No retrieved stories match your preferences/);
-  expect(news.mock.calls[0][0]).toBe('/api/news?source=guardian&category=science');
+  expect(news.mock.calls[0][0]).toEqual({ source: 'guardian', category: 'science' });
   openPreferences();
   expect(screen.getByRole('checkbox', { name: 'Saved author' })).toBeChecked();
   expect(screen.getByRole('checkbox', { name: 'Science' })).toBeChecked();
   fireEvent.click(screen.getByRole('button', { name: 'Reset preferences' }));
   await waitFor(() => expect(screen.getAllByRole('article')).toHaveLength(3));
-  expect(news.mock.lastCall?.[0]).toBe('/api/news');
+  expect(news.mock.lastCall?.[0]).toEqual({});
   expect(JSON.parse(localStorage.getItem(preferencesKey)!)).toEqual(emptyPreferences);
 });
 
@@ -108,9 +110,9 @@ it('applies preferences for the session when storage writes fail', async () => {
 it('retains successful combinations when another selected publication fails', async () => {
   localStorage.setItem(preferencesKey, JSON.stringify({ ...emptyPreferences, sources: ['guardian', 'nyt'] }));
   news.mockImplementation(async (input) => {
-    const isNyt = String(input).includes('source=nyt');
+    const isNyt = input.source === 'nyt';
     const body: NewsResponse = { articles: isNyt ? [] : [articles[0]], failures: isNyt ? [{ provider: 'nyt', code: 'unauthorized', message: 'Rejected key' }] : [] };
-    return Response.json(body, { status: isNyt ? 502 : 200 });
+    return (body);
   });
   render(<App />);
   expect(await screen.findByRole('article')).toBeInTheDocument();

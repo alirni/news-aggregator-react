@@ -1,17 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fetchGuardian } from '../server/providers/guardian';
-import { fetchNewsApi, fetchNewsApiSources } from '../server/providers/newsapi';
-import { fetchNyt } from '../server/providers/nyt';
-import { requestJson } from '../server/providers/http';
+import { fetchGuardian } from '../src/api/providers/guardian';
+import { fetchNewsApi, fetchNewsApiSources } from '../src/api/providers/newsapi';
+import { fetchNyt } from '../src/api/providers/nyt';
+import { requestJson } from '../src/api/providers/http';
 import { guardianArticle, newsApiArticle, nytArticle } from './fixtures';
 
 const fetchMock = vi.fn<typeof fetch>();
 
 beforeEach(() => {
   vi.stubGlobal('fetch', fetchMock);
-  vi.stubEnv('NEWS_API_KEY', 'test-news-key');
-  vi.stubEnv('GUARDIAN_API_KEY', 'test-guardian-key');
-  vi.stubEnv('NYT_API_KEY', 'test-nyt-key');
+  vi.stubEnv('VITE_NEWS_API_KEY', 'test-news-key');
+  vi.stubEnv('VITE_GUARDIAN_API_KEY', 'test-guardian-key');
+  vi.stubEnv('VITE_NYT_API_KEY', 'test-nyt-key');
 });
 
 afterEach(() => {
@@ -141,7 +141,7 @@ describe('provider failures', () => {
   });
 
   it('does not make a request without a key', async () => {
-    vi.stubEnv('NYT_API_KEY', '');
+    vi.stubEnv('VITE_NYT_API_KEY', '');
     await expect(fetchNyt({})).rejects.toMatchObject({ code: 'missing_key' });
     expect(fetchMock).not.toHaveBeenCalled();
   });

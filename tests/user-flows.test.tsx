@@ -4,8 +4,11 @@ import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import App from '../src/App';
-import type { Article } from '../shared/news';
+import { getNews, getSources } from '../src/api/news';
+import type { Article, NewsResponse } from '../shared/news';
 import { emptyPreferences, preferencesKey } from '../src/lib/preferences';
+
+vi.mock('../src/api/news', () => ({ getNews: vi.fn(), getSources: vi.fn() }));
 
 const sources = [
   { id: 'guardian', name: 'The Guardian', provider: 'guardian' as const },
@@ -15,16 +18,15 @@ const articles: Article[] = [
   { id: 'older', url: 'https://example.com/older', provider: 'guardian', source: sources[0], title: 'Older science story', authors: ['Alex'], category: 'science', publishedAt: '2026-10-13T12:00:00Z' },
   { id: 'newer', url: 'https://example.com/newer', provider: 'nyt', source: sources[1], title: 'Newer sports story', authors: ['Sam'], category: 'sports', publishedAt: '2026-10-14T12:00:00Z' },
 ];
-const news = vi.fn<typeof fetch>();
+const news = vi.mocked(getNews);
 beforeEach(() => {
   localStorage.clear();
-  news.mockImplementation(async () => Response.json({ articles, failures: [] }));
-  vi.stubGlobal('fetch', (url: string, options?: RequestInit) => url === '/api/sources'
-    ? Promise.resolve(Response.json({ sources, failures: [] })) : news(url, options));
+  news.mockImplementation(async () => ({ articles, failures: [] }));
+  vi.mocked(getSources).mockResolvedValue({ sources, failures: [] });
 });
 afterEach(() => {
   cleanup();
-  vi.unstubAllGlobals();
+  vi.mocked(getSources).mockReset();
   news.mockReset();
   localStorage.clear();
 });
@@ -46,7 +48,7 @@ it('supports keyboard search, labeled controls, and keyboard preference selectio
   expect(news).toHaveBeenCalledTimes(1);
   await user.keyboard('{Enter}');
   await screen.findByRole('heading', { name: 'Search results' });
-  expect(news.mock.lastCall?.[0]).toBe('/api/news?q=space');
+  expect(news.mock.lastCall?.[0]).toEqual({ q: 'space' });
   for (const control of [screen.getByRole('combobox', { name: 'Category' }), screen.getByRole('combobox', { name: 'Publication' }), screen.getByLabelText('From'), screen.getByLabelText('To')]) await tabTo(user, control);
   const summary = screen.getByText('Feed preferences');
   await tabTo(user, summary);
@@ -69,8 +71,8 @@ it('recovers a personalized feed from a network failure while keeping sorted, un
   localStorage.setItem(preferencesKey, JSON.stringify({ ...emptyPreferences, sources: ['guardian', 'nyt'] }));
   let failed = true;
   news.mockImplementation(async (input) => {
-    if (String(input).includes('source=nyt') && failed) throw new Error('Connection interrupted');
-    return Response.json({ articles: [...articles, articles[0]], failures: [] });
+    if (input.source === 'nyt' && failed) throw new Error('Connection interrupted');
+    return ({ articles: [...articles, articles[0]], failures: [] });
   });
   const user = userEvent.setup();
   render(<App />);
@@ -86,14 +88,14 @@ it('recovers a personalized feed from a network failure while keeping sorted, un
 
 it('ignores a late personalized response after the user switches to search', async () => {
   localStorage.setItem(preferencesKey, JSON.stringify({ ...emptyPreferences, authors: ['Alex'] }));
-  let resolveOld!: (response: Response) => void;
+  let resolveOld!: (response: NewsResponse) => void;
   news.mockImplementationOnce(() => new Promise((resolve) => { resolveOld = resolve; }));
   const user = userEvent.setup();
   render(<App />);
   await user.type(screen.getByLabelText('Keyword'), 'sports{Enter}');
   await screen.findAllByRole('article');
-  expect(news.mock.calls[0][1]?.signal?.aborted).toBe(true);
-  await act(async () => resolveOld(Response.json({ articles: [articles[0]], failures: [] })));
+  expect(news.mock.calls[0][1]?.aborted).toBe(true);
+  await act(async () => resolveOld({ articles: [articles[0]], failures: [] }));
   expect(screen.getAllByRole('article')).toHaveLength(2);
   expect(screen.getByRole('heading', { name: 'Search results' })).toBeInTheDocument();
 });
@@ -108,7 +110,7 @@ it('resets search without applying or deleting saved feed preferences', async ()
   await user.click(screen.getByRole('button', { name: 'Reset filters' }));
   await waitFor(() => expect(screen.getAllByRole('article')).toHaveLength(2));
   expect(screen.getByLabelText('Keyword')).toHaveValue('');
-  expect(news.mock.lastCall?.[0]).toBe('/api/news');
+  expect(news.mock.lastCall?.[0]).toEqual({});
   expect(JSON.parse(localStorage.getItem(preferencesKey)!).authors).toEqual(['Alex']);
   await user.click(screen.getByRole('button', { name: 'My feed' }));
   await waitFor(() => expect(screen.getAllByRole('article')).toHaveLength(1));

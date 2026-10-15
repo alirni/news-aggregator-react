@@ -15,5 +15,5 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["src", "shared", "tests/**/*.tsx"]
+  "include": ["src", "shared", "tests"]
 }

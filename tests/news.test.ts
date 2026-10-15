@@ -1,14 +1,14 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { getNews, getSources } from '../server/news';
+import { getNews, getSources } from '../src/api/news';
 import { guardianArticle, newsApiArticle, nytArticle } from './fixtures';
 
 const fetchMock = vi.fn<typeof fetch>();
 beforeEach(() => {
   vi.spyOn(console, 'error').mockImplementation(() => {});
   vi.stubGlobal('fetch', fetchMock);
-  vi.stubEnv('NEWS_API_KEY', 'test');
-  vi.stubEnv('GUARDIAN_API_KEY', 'test');
-  vi.stubEnv('NYT_API_KEY', 'test');
+  vi.stubEnv('VITE_NEWS_API_KEY', 'test');
+  vi.stubEnv('VITE_GUARDIAN_API_KEY', 'test');
+  vi.stubEnv('VITE_NYT_API_KEY', 'test');
 });
 afterEach(() => {
   vi.restoreAllMocks();
@@ -79,8 +79,20 @@ it('returns fixed publications when the NewsAPI source catalog fails', async () 
   expect(console.error).toHaveBeenCalledWith('[sources] newsapi HTTP 429 rate_limited: Request limit reached. Please try again later.');
 });
 
-it('logs the provider, HTTP status, and safe failure reason in the terminal', async () => {
+it('logs the provider, HTTP status, and safe failure reason in the browser console', async () => {
   fetchMock.mockResolvedValue(new Response('upstream URL with secret key', { status: 401 }));
   await getNews({ source: 'nyt' });
   expect(console.error).toHaveBeenCalledExactlyOnceWith('[news] nyt HTTP 401 unauthorized: API key was rejected or lacks access.');
+});
+
+it('cancels direct provider requests without logging a provider failure', async () => {
+  const controller = new AbortController();
+  fetchMock.mockImplementation((_url, options) => new Promise((_resolve, reject) => {
+    options?.signal?.addEventListener('abort', () => reject(options.signal?.reason));
+  }));
+  const pending = getNews({ source: 'nyt' }, controller.signal);
+  controller.abort();
+  await expect(pending).rejects.toMatchObject({ name: 'AbortError' });
+  expect(fetchMock.mock.calls[0][1]?.signal?.aborted).toBe(true);
+  expect(console.error).not.toHaveBeenCalled();
 });

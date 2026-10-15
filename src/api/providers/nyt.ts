@@ -1,4 +1,4 @@
-import type { Article, Category, NewsQuery, Source } from '../../shared/news';
+import type { Article, Category, NewsQuery, Source } from '../../../shared/news';
 import { apiKey, ProviderError, requestJson } from './http';
 import { normalizeArticle, sectionCategory, text } from './normalize';
 
@@ -20,9 +20,9 @@ interface NytArticle {
   multimedia?: { url?: string; subtype?: string }[] | { default?: { url?: string }; thumbnail?: { url?: string } };
 }
 
-export async function fetchNyt(query: NewsQuery): Promise<Article[]> {
+export async function fetchNyt(query: NewsQuery, signal?: AbortSignal): Promise<Article[]> {
   const url = new URL('https://api.nytimes.com/svc/search/v2/articlesearch.json');
-  url.searchParams.set('api-key', apiKey('NYT_API_KEY'));
+  url.searchParams.set('api-key', apiKey('VITE_NYT_API_KEY'));
   url.searchParams.set('sort', 'newest');
   url.searchParams.set('page', '0');
   if (query.q) url.searchParams.set('q', query.q);
@@ -31,7 +31,7 @@ export async function fetchNyt(query: NewsQuery): Promise<Article[]> {
   const data = await requestJson<{
     status?: string;
     response?: { docs?: NytArticle[] | null; metadata?: { hits?: number } };
-  }>(url);
+  }>(url, undefined, signal);
   if (data?.status === 'OK' && data.response?.docs === null && data.response.metadata?.hits === 0) return [];
   if (data?.status !== 'OK' || !Array.isArray(data.response?.docs)) {
     throw new ProviderError('unavailable', 'The New York Times returned an unexpected response.');

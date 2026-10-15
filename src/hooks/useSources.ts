@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import type { Source, SourcesResponse } from '../../shared/news';
+import type { Source } from '../../shared/news';
+import { getSources } from '../api/news';
 
 const fixedSources: Source[] = [
   { id: 'guardian', name: 'The Guardian', provider: 'guardian' },
@@ -17,10 +18,7 @@ export function useSources() {
     let active = true;
     async function load() {
       try {
-        const response = await fetch('/api/sources', { signal: controller.signal });
-        if (!response.ok) throw new Error('Request failed');
-        const data = await response.json() as SourcesResponse;
-        if (!Array.isArray(data.sources) || !Array.isArray(data.failures)) throw new Error('Invalid response');
+        const data = await getSources(controller.signal);
         if (active) {
           setSources(data.sources);
           setStatus(data.failures.length ? 'partial' : 'ready');

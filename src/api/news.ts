@@ -1,4 +1,4 @@
-import type { Article, NewsQuery, NewsResponse, Provider, ProviderFailure, SourcesResponse } from '../shared/news';
+import type { Article, NewsQuery, NewsResponse, Provider, ProviderFailure, SourcesResponse } from '../../shared/news';
 import { fetchGuardian, guardianSource } from './providers/guardian';
 import { ProviderError } from './providers/http';
 import { fetchNewsApi, fetchNewsApiSources } from './providers/newsapi';
@@ -19,10 +19,11 @@ function failure(provider: Provider, error: unknown, operation: 'news' | 'source
   return result;
 }
 
-export async function getNews(query: NewsQuery): Promise<NewsResponse> {
+export async function getNews(query: NewsQuery, signal?: AbortSignal): Promise<NewsResponse> {
   const selected = providers.filter(({ id }) => !query.source ||
     (id === 'newsapi' ? query.source.startsWith('newsapi:') : query.source === id));
-  const results = await Promise.allSettled(selected.map((provider) => provider.fetch(query)));
+  const results = await Promise.allSettled(selected.map((provider) => provider.fetch(query, signal)));
+  signal?.throwIfAborted();
   const articles: Article[] = [];
   const failures: ProviderFailure[] = [];
   results.forEach((result, index) => {
@@ -41,12 +42,13 @@ export async function getNews(query: NewsQuery): Promise<NewsResponse> {
   return { articles: [...unique.values()], failures };
 }
 
-export async function getSources(): Promise<SourcesResponse> {
+export async function getSources(signal?: AbortSignal): Promise<SourcesResponse> {
   const sources = [guardianSource, nytSource];
   const failures: ProviderFailure[] = [];
   try {
-    sources.push(...await fetchNewsApiSources());
+    sources.push(...await fetchNewsApiSources(signal));
   } catch (error) {
+    signal?.throwIfAborted();
     failures.push(failure('newsapi', error, 'sources'));
   }
   return { sources: sources.sort((a, b) => a.name.localeCompare(b.name)), failures };

@@ -1,4 +1,4 @@
-import type { Article, Category } from '../../shared/news';
+import type { Article, Category } from '../../../shared/news';
 
 export function text(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined;

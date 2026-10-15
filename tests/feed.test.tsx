@@ -3,8 +3,11 @@ import '@testing-library/jest-dom/vitest';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import App from '../src/App';
+import { getNews, getSources } from '../src/api/news';
 import { ArticleCard } from '../src/components/ArticleCard';
-import type { Article } from '../shared/news';
+import type { Article, NewsResponse } from '../shared/news';
+
+vi.mock('../src/api/news', () => ({ getNews: vi.fn(), getSources: vi.fn() }));
 
 const article: Article = {
   id: 'https://example.com/story', url: 'https://example.com/story',
@@ -14,24 +17,22 @@ const article: Article = {
   category: 'science', description: 'Scientists share their findings.',
   imageUrl: 'https://example.com/image.jpg',
 };
-const fetchMock = vi.fn<typeof fetch>();
+const news = vi.mocked(getNews);
 
-beforeEach(() => vi.stubGlobal('fetch', (url: string, options?: RequestInit) => url === '/api/sources'
-  ? Promise.resolve(Response.json({ sources: [], failures: [] }))
-  : fetchMock(url, options)));
+beforeEach(() => vi.mocked(getSources).mockResolvedValue({ sources: [], failures: [] }));
 afterEach(() => {
   cleanup();
-  vi.unstubAllGlobals();
+  vi.mocked(getSources).mockReset();
   vi.useRealTimers();
-  fetchMock.mockReset();
+  news.mockReset();
 });
 
 it('shows loading until the request completes, then renders article details', async () => {
-  let resolve!: (response: Response) => void;
-  fetchMock.mockReturnValue(new Promise((done) => { resolve = done; }));
+  let resolve!: (response: NewsResponse) => void;
+  news.mockReturnValue(new Promise((done) => { resolve = done; }));
   render(<App />);
   expect(screen.getByRole('status')).toHaveTextContent('Loading the latest stories');
-  await act(async () => resolve(Response.json({ articles: [article], failures: [] })));
+  await act(async () => resolve({ articles: [article], failures: [] }));
   const link = screen.getByRole('link', { name: /A new discovery/ });
   expect(link).toHaveAttribute('href', article.url);
   expect(link).toHaveAttribute('rel', 'noopener noreferrer');
@@ -43,7 +44,7 @@ it('shows loading until the request completes, then renders article details', as
 });
 
 it('keeps articles visible during partial provider failure', async () => {
-  fetchMock.mockResolvedValue(Response.json({ articles: [article], failures: [{ provider: 'nyt', code: 'unauthorized', message: 'API key rejected' }] }));
+  news.mockResolvedValue({ articles: [article], failures: [{ provider: 'nyt', code: 'unauthorized', message: 'API key rejected' }] });
   render(<App />);
   expect(await screen.findByText('Some sources are unavailable')).toBeInTheDocument();
   expect(screen.getByRole('article')).toBeInTheDocument();
@@ -53,48 +54,42 @@ it('keeps articles visible during partial provider failure', async () => {
 });
 
 it('shows a useful empty state', async () => {
-  fetchMock.mockResolvedValue(Response.json({ articles: [], failures: [] }));
+  news.mockResolvedValue({ articles: [], failures: [] });
   render(<App />);
   expect(await screen.findByText('No stories to show')).toBeInTheDocument();
   expect(screen.queryByRole('article')).not.toBeInTheDocument();
 });
 
 it('retries a failed request and replaces the error with articles', async () => {
-  fetchMock.mockRejectedValueOnce(new Error('Network failure'))
-    .mockResolvedValueOnce(Response.json({ articles: [article], failures: [] }));
+  news.mockRejectedValueOnce(new Error('Network failure'))
+    .mockResolvedValueOnce({ articles: [article], failures: [] });
   render(<App />);
   expect(await screen.findByRole('alert')).toHaveTextContent('We couldn’t load the news');
   fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
   expect(await screen.findByRole('article')).toBeInTheDocument();
-  expect(fetchMock).toHaveBeenCalledTimes(2);
+  expect(news).toHaveBeenCalledTimes(2);
   expect(screen.queryByRole('alert')).not.toBeInTheDocument();
 });
 
 it('shows total provider failure as an error rather than empty results', async () => {
-  fetchMock.mockResolvedValue(Response.json({ articles: [], failures: [{ provider: 'newsapi', code: 'rate_limited', message: 'Quota exceeded' }] }, { status: 502 }));
+  news.mockResolvedValue({ articles: [], failures: (['newsapi', 'guardian', 'nyt'] as const).map((provider) => ({ provider, code: 'rate_limited', message: 'Quota exceeded' })) });
   render(<App />);
   expect(await screen.findByRole('alert')).toHaveTextContent('Request limit reached');
   expect(screen.queryByText('No stories to show')).not.toBeInTheDocument();
 });
 
-it('handles an unexpected API response', async () => {
-  fetchMock.mockResolvedValue(Response.json({ unexpected: true }));
-  render(<App />);
-  expect(await screen.findByRole('alert')).toBeInTheDocument();
-});
-
 it('aborts a pending request when the feed unmounts', () => {
-  fetchMock.mockReturnValue(new Promise(() => {}));
+  news.mockReturnValue(new Promise(() => {}));
   const { unmount } = render(<App />);
-  const signal = fetchMock.mock.calls[0][1]?.signal;
+  const signal = news.mock.calls[0][1];
   unmount();
   expect(signal?.aborted).toBe(true);
 });
 
 it('ends loading with a retryable error when the request times out', async () => {
   vi.useFakeTimers();
-  fetchMock.mockImplementation((_url, options) => new Promise((_resolve, reject) => {
-    options?.signal?.addEventListener('abort', () => reject(new Error('Aborted')));
+  news.mockImplementation((_url, options) => new Promise((_resolve, reject) => {
+    options?.addEventListener('abort', () => reject(new Error('Aborted')));
   }));
   render(<App />);
   await act(() => vi.advanceTimersByTimeAsync(15_000));

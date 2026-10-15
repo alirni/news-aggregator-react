@@ -1,4 +1,4 @@
-import type { Article, Category, NewsQuery, Source } from '../../shared/news';
+import type { Article, Category, NewsQuery, Source } from '../../../shared/news';
 import { apiKey, ProviderError, requestJson } from './http';
 import { normalizeArticle, sectionCategory } from './normalize';
 
@@ -21,9 +21,9 @@ interface GuardianArticle {
   tags?: { type?: string; webTitle?: string }[];
 }
 
-export async function fetchGuardian(query: NewsQuery): Promise<Article[]> {
+export async function fetchGuardian(query: NewsQuery, signal?: AbortSignal): Promise<Article[]> {
   const url = new URL('https://content.guardianapis.com/search');
-  url.searchParams.set('api-key', apiKey('GUARDIAN_API_KEY'));
+  url.searchParams.set('api-key', apiKey('VITE_GUARDIAN_API_KEY'));
   url.searchParams.set('page-size', '20');
   url.searchParams.set('order-by', 'newest');
   url.searchParams.set('show-fields', 'trailText,thumbnail,byline');
@@ -34,7 +34,7 @@ export async function fetchGuardian(query: NewsQuery): Promise<Article[]> {
   if (query.category) url.searchParams.set('section', sections[query.category].join('|'));
   // Health is a topic within Society, not a standalone Guardian section.
   if (query.category === 'health') url.searchParams.set('tag', 'society/health');
-  const data = await requestJson<{ response?: { status?: string; results?: GuardianArticle[] } }>(url);
+  const data = await requestJson<{ response?: { status?: string; results?: GuardianArticle[] } }>(url, undefined, signal);
   if (data?.response?.status !== 'ok' || !Array.isArray(data.response.results)) {
     throw new ProviderError('unavailable', 'The Guardian returned an unexpected response.');
   }

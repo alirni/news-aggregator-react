@@ -1,4 +1,4 @@
-import type { Article, NewsQuery, Source } from '../../shared/news';
+import type { Article, NewsQuery, Source } from '../../../shared/news';
 import { apiKey, ProviderError, requestJson } from './http';
 import { normalizeArticle, text } from './normalize';
 
@@ -17,8 +17,8 @@ interface NewsApiResponse {
   articles?: NewsApiArticle[];
 }
 
-export async function fetchNewsApi(query: NewsQuery): Promise<Article[]> {
-  const key = apiKey('NEWS_API_KEY');
+export async function fetchNewsApi(query: NewsQuery, signal?: AbortSignal): Promise<Article[]> {
+  const key = apiKey('VITE_NEWS_API_KEY');
   const sourceId = query.source?.replace(/^newsapi:/, '');
   const search = !query.category && Boolean(query.q || sourceId);
   const url = new URL(`https://newsapi.org/v2/${search ? 'everything' : 'top-headlines'}`);
@@ -36,7 +36,7 @@ export async function fetchNewsApi(query: NewsQuery): Promise<Article[]> {
     // Headlines cannot combine category/country with sources or filter by date.
     // The aggregation layer applies those constraints to the returned batch.
   }
-  const data = await requestJson<NewsApiResponse>(url, { 'X-Api-Key': key });
+  const data = await requestJson<NewsApiResponse>(url, { 'X-Api-Key': key }, signal);
   if (data?.status !== 'ok' || !Array.isArray(data.articles)) {
     throw new ProviderError('unavailable', 'NewsAPI returned an unexpected response.');
   }
@@ -57,13 +57,13 @@ export async function fetchNewsApi(query: NewsQuery): Promise<Article[]> {
   })).filter((article): article is Article => article !== null);
 }
 
-export async function fetchNewsApiSources(): Promise<Source[]> {
-  const key = apiKey('NEWS_API_KEY');
+export async function fetchNewsApiSources(signal?: AbortSignal): Promise<Source[]> {
+  const key = apiKey('VITE_NEWS_API_KEY');
   const url = new URL('https://newsapi.org/v2/top-headlines/sources?language=en');
   const data = await requestJson<{
     status: string;
     sources?: { id?: string; name?: string }[];
-  }>(url, { 'X-Api-Key': key });
+  }>(url, { 'X-Api-Key': key }, signal);
   if (data?.status !== 'ok' || !Array.isArray(data.sources)) {
     throw new ProviderError('unavailable', 'NewsAPI returned an unexpected sources response.');
   }

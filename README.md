@@ -1,43 +1,54 @@
 # News Aggregator
 
-A frontend take-home assignment using React, TypeScript, and Vite, with a small Express API proxy. News comes from NewsAPI, The Guardian, and The New York Times. The frontend and API run together in one Docker container.
+A frontend-only React + TypeScript take-home assignment. The browser fetches articles directly from **NewsAPI**, **The Guardian**, and **The New York Times**. Vite handles development/builds, and Docker serves the static app with Nginx. There is no backend or API proxy.
 
-The feed displays article images, publication, title, description, author, and UTC publication date. Titles open the original article in a new tab. It supports loading, empty results, retry, and partial provider failures, with image fallbacks and one/two/three-column layouts for mobile/tablet/desktop.
+## Local development
 
-Search by keyword and combine category, publication, and inclusive UTC date filters. Changes apply only when you submit **Search articles** (or press Enter); **Reset filters** clears the form and reloads unrestricted search results. Invalid date ranges are rejected before requesting articles. Retry repeats the submitted query, and responses from superseded requests cannot replace the current results. If publication choices fail to load, keyword/date/category search and the fixed publications remain usable.
+Use Node.js 24 LTS (`nvm use` if you use nvm) and npm.
 
-## Personalized feed
+```sh
+npm ci
+cp .env.example .env # Skip this if .env already exists
+```
 
-Open **Feed preferences**, choose multiple publications, categories, or authors, and select **Save preferences**. The app saves selections in localStorage and opens **My feed**. Matching uses OR within each group and AND across populated groups; an empty group is unrestricted. **Reset preferences** removes every restriction. If storage is unavailable, preferences still apply for the current session and the panel explains that they may not survive a reload.
+Set the following values in `.env`:
 
-The feed requests each selected publication/category combination once, merges the responses, removes duplicate article URLs, and sorts newest first. Requests run only on save, reset, retry, or returning to **My feed**, rather than on each checkbox change. Selecting many publications/categories consumes more API requests and can encounter provider quotas; one failed combination does not hide successful results.
+| Variable | Provider setup |
+| --- | --- |
+| `VITE_NEWS_API_KEY` | [NewsAPI](https://newsapi.org/register) |
+| `VITE_GUARDIAN_API_KEY` | [Guardian Open Platform](https://open-platform.theguardian.com/access/) |
+| `VITE_NYT_API_KEY` | [NYT developer portal](https://developer.nytimes.com/) — enable Article Search |
 
-Author choices accumulate from articles retrieved during the current session and include any saved authors. Author matching happens locally within the retrieved batches, not the providers' full archives. Missing authors cannot match an author preference. Saved authors and publication IDs remain selectable even if absent from the latest data or catalog.
+```sh
+npm run dev
+```
 
-Search ignores all feed preferences, including an empty submitted search. Use **My feed** to return to your saved selections; the search form remains available independently.
+Open [http://localhost:5173](http://localhost:5173). Restart Vite after editing `.env`. Stop with Ctrl+C.
+
+**These are public browser demo keys.** Vite embeds `VITE_` values in the JavaScript bundle, and requests expose them in browser developer tools. Keeping `.env` out of Git does not make bundled keys secret. Use dedicated development keys and never put private credentials in these variables.
+
+This assignment targets **localhost development/testing**. [NewsAPI's free plan](https://newsapi.org/pricing) enables CORS for localhost and does not permit staging or production use. Direct requests also depend on each provider's CORS policy. All three providers were verified from a localhost browser; do not disable browser security or use a public CORS proxy if a provider rejects an origin.
 
 ## Run with Docker
 
-Install and start Docker Desktop (or Docker Engine). From the project directory, create the environment file if you do not already have one:
+Start Docker Desktop (or Docker Engine), and configure `.env` as above. The following commands use a POSIX shell (macOS/Linux). Load the development keys into the shell, then pass them to the frontend build:
 
 ```sh
-cp .env.example .env
+set -a
+. ./.env
+set +a
+
+docker build -t news-aggregator:local \
+  --build-arg VITE_NEWS_API_KEY \
+  --build-arg VITE_GUARDIAN_API_KEY \
+  --build-arg VITE_NYT_API_KEY .
+
+docker run --rm --name news-aggregator -p 127.0.0.1:3001:80 news-aggregator:local
 ```
 
-Fill in the three API keys listed below. Use plain `KEY=value` lines without surrounding quotes. Keys are supplied at runtime; `.env` is excluded from Git and the Docker build context.
+Open [http://localhost:3001](http://localhost:3001). If port 3001 is occupied, change the host mapping to `-p 127.0.0.1:3002:80` and open localhost:3002.
 
-```sh
-docker build -t news-aggregator:local .
-docker run --rm --name news-aggregator --env-file .env -e API_PORT=3001 -p 127.0.0.1:3001:3001 news-aggregator:local
-```
-
-Open [http://localhost:3001](http://localhost:3001). Express serves the built frontend and `/api` from the same port. The explicit `API_PORT` override keeps the container port fixed even if you use a different port in local development. If port 3001 is occupied, use `-p 127.0.0.1:3002:3001` and open localhost:3002 instead.
-
-The foreground command displays server output. To view logs from another terminal:
-
-```sh
-docker logs --follow news-aggregator
-```
+The image has two stages: Node builds the frontend, then Nginx serves the compiled files. No Node server or proxy runs in the final container. `.env` is excluded from the build context; the explicitly supplied demo keys are embedded in the frontend during the build. **Rebuild the image after changing keys**; runtime `--env-file` cannot change an already-built frontend.
 
 Stop with Ctrl+C, or from another terminal:
 
@@ -45,114 +56,62 @@ Stop with Ctrl+C, or from another terminal:
 docker stop news-aggregator
 ```
 
-`--rm` removes the container when it stops. Preferences remain in browser localStorage for the same origin. After changing keys, stop and recreate the container with the same run command; rebuilding the image is unnecessary. Missing or invalid keys show provider failures while working providers continue to supply news.
+`--rm` removes the stopped container. Browser preferences remain in localStorage for the same origin. `docker logs --follow news-aggregator` shows Nginx startup/access logs. **Provider errors appear in the browser console and Network panel**, alongside the app's provider-failure messages. The container health check requests the static home page without consuming API quotas.
 
-The Dockerfile uses a build stage for Vite/TypeScript and a runtime stage containing production dependencies and compiled output. The app runs as the unprivileged `node` user. Its health check calls `/api/health` without consuming news API requests.
+## Search and personalized feed
 
-## Local development
+- Search by keyword and combine category, publication, and inclusive UTC date filters. Fields apply only when submitting **Search articles** or pressing Enter. Invalid date ranges are rejected before fetching. **Reset filters** clears the form and loads unrestricted search results.
+- Open **Feed preferences**, choose multiple publications, categories, and authors, then **Save preferences**. Selections persist in localStorage. Matching uses OR within a group and AND across populated groups; an empty group is unrestricted. **Reset preferences** removes every restriction.
+- Search ignores saved feed preferences, including an empty submitted search. **My feed** restores saved selections. Preferences still apply for the session if browser storage is unavailable, with an explanatory message.
+- Each selected publication/category combination is requested once. Articles are merged, deduplicated by exact URL, and sorted newest first. Selecting many combinations consumes more provider requests. A failed provider does not hide working providers' stories.
+- Author choices accumulate from retrieved articles and include saved selections. Authors are matched locally within returned batches, not the full archives. Missing authors cannot match an author preference. Saved author/publication choices remain selectable when absent from current data.
+- Cards show the available image, title, description, publication, author, and UTC date. Links open the original article. Loading, empty, error, retry, partial-failure, and image-fallback states are included. Superseded requests are aborted and their results ignored.
 
-Use Node.js 24 LTS (`nvm use` if you use nvm) and npm. Docker users do not need a local Node installation.
+## Structure and implementation choices
 
-```sh
-npm ci
-cp .env.example .env # Only if .env does not already exist
-npm run dev
-```
+- `src/api/providers` contains a focused adapter per provider plus shared request/normalization helpers. `src/api/news.ts` fetches the selected providers concurrently, combines their results, and records safe provider failures.
+- `src/lib` handles preference matching and combining preference requests. Hooks manage requests, saved preferences, and the publication catalog; separate components handle forms, feed states, and article cards.
+- `shared/news.ts` defines the common article/source/query types and categories. Imports are extensionless, resolved by Vite and the test runner. React state, native fetch/forms, plain CSS, and a small set of shared helpers keep the app simple.
+- There is no database, authentication, router, article reader, or backend. HTTP statuses belong to upstream provider requests; the app has no `/api/news`, `/api/sources`, or `/api/health` endpoints.
 
-Open http://localhost:5173. Vite forwards `/api` requests to Express on port 3001. Both processes stop when you press Ctrl+C. Set `API_PORT` in `.env` if port 3001 is unavailable; restart development after changing it.
+## Provider limitations
 
-`GET /api/health` returns `{"status":"ok"}`. API credentials belong only in `.env`. Never use the `VITE_` prefix for secrets, as Vite exposes those values to the browser.
-
-Set these server-side variables before requesting news:
-
-| Variable | Provider setup |
-| --- | --- |
-| `NEWS_API_KEY` | [NewsAPI](https://newsapi.org/register) |
-| `GUARDIAN_API_KEY` | [Guardian Open Platform](https://open-platform.theguardian.com/access/) |
-| `NYT_API_KEY` | [NYT developer portal](https://developer.nytimes.com/) — enable Article Search for the key |
-
-Restart the server after editing `.env`. Missing or rejected keys are reported per provider; working providers still return articles.
-
-Provider failures also appear in the terminal running `npm run dev` or `npm start`, with the provider, operation, HTTP status (when available), and a safe error message. For example: `[news] nyt HTTP 401 unauthorized: API key was rejected or lacks access.` Raw upstream responses, request URLs, and credentials are not logged.
-
-## API
-
-`GET /api/news` returns `{ articles, failures }`. Optional query parameters:
-
-| Parameter | Format |
-| --- | --- |
-| `q` | Keyword query, up to 200 characters |
-| `from`, `to` | Inclusive UTC dates, `YYYY-MM-DD` |
-| `category` | `business`, `entertainment`, `health`, `science`, `sports`, `technology` |
-| `source` | Publication ID from `/api/sources`, e.g. `guardian`, `nyt`, `newsapi:bbc-news` |
-
-Example: `/api/news?q=space&category=science&from=2026-10-01&to=2026-10-14`.
-
-The server queries providers concurrently with a ten-second timeout per request, normalizes their articles, removes exact duplicate article URLs, and sorts newest first. Selecting a publication only calls its provider. Invalid filters return HTTP 400; complete provider failure returns 502; successful or partially successful queries return 200, including when no articles match. Failures contain a provider ID, a stable code, and a safe message without credentials or upstream request URLs.
-
-`GET /api/sources` returns `{ sources, failures }`: English-language NewsAPI publications plus The Guardian and The New York Times. The fixed publications remain available if the NewsAPI catalog fails. NewsAPI publication IDs are prefixed with `newsapi:` to distinguish their API route from the direct Guardian/NYT integrations.
-
-Shared response types are in `shared/news.ts`. Provider adapters are in `server/providers`; merging and filtering are in `server/news.ts`.
-
-## Implementation choices
-
-- React hooks manage feed requests and browser preferences; native forms, fetch, and plain CSS keep the dependency surface small.
-- Each provider adapter owns its request parameters and response normalization. A shared request helper handles timeouts and safe errors, and the aggregation layer uses the same article interface for all providers.
-- Relative imports are extensionless throughout the source. TypeScript checks the server, and esbuild bundles its local modules into one JavaScript entry point for Node and Docker. Runtime packages such as Express stay external. Vite and the test runner also resolve extensionless imports.
-- Search controls, preferences, feed states, and article cards have separate responsibilities. Shared types, category values, and filtering helpers avoid duplicating provider-specific logic in components.
-- There is no database, authentication, client router, or article reader. Article links open the original publication.
-
-## Assignment checklist
-
-| Requirement | Implementation |
-| --- | --- |
-| React with TypeScript | Vite client with strict TypeScript |
-| At least three approved sources | Separate NewsAPI, Guardian, and NYT integrations |
-| Keyword search | Submitted search form |
-| Date, category, and source filters | Combined filters with date validation and documented provider limits |
-| Preferred sources, categories, and authors | Multiple selections saved in localStorage, plus My feed navigation |
-| Mobile-responsive UI | Responsive controls and one/two/three-column article grid |
-| Docker and running instructions | Multi-stage Dockerfile and commands above |
-| DRY, KISS, SOLID practices | Shared contracts/helpers, focused adapters and components, small proxy |
-
-### Coverage limitations
-
-- Each request retrieves one batch: up to 20 NewsAPI articles, 20 Guardian articles, and 10 NYT articles. No pagination or automatic retries are implemented.
-- NewsAPI uses US headlines for the default feed and category queries; keyword or publication queries without a category use its English-language Everything endpoint. [NewsAPI headlines](https://newsapi.org/docs/endpoints/top-headlines) cannot combine category and publication parameters or filter dates, so publication/date constraints are applied to that returned batch. An empty result does not prove that no matching articles exist in the archive.
-- Guardian categories map to sections, with a health tag narrowing the Society section. NYT categories map to sections. NYT publication and category constraints are applied to the returned batch locally: its documented `fq` source and section filters returned zero hits during live verification. This can produce empty category results even when older matching articles exist. NYT's successful `docs: null` response is treated as empty only when metadata confirms zero hits. The providers' taxonomies are approximate equivalents.
-- NewsAPI does not supply article categories: unfiltered results have a null category. Missing authors produce an empty list. Structured Guardian/NYT authors are preserved individually; unstructured bylines remain one label.
-- API access, date history, and quotas depend on the key's plan. The [NewsAPI free plan](https://newsapi.org/pricing) is for development/testing; this assignment targets localhost.
+- Each query retrieves one batch: up to 20 NewsAPI articles, 20 Guardian articles, and 10 NYT articles. There is no pagination or automatic retry. Each direct request has a ten-second timeout, combined with cancellation when switching queries.
+- NewsAPI uses US headlines for default/category queries and English-language Everything for keyword/publication queries without a category. Its [headlines endpoint](https://newsapi.org/docs/endpoints/top-headlines) cannot combine category and publication parameters or filter dates; those constraints are applied locally to the returned batch.
+- Guardian categories map to sections, with a health tag narrowing Society. NYT publication/category checks run locally because the documented `fq` filters returned zero hits during live verification. Empty category results do not prove that matching articles are absent from the archive. NYT `docs: null` counts as empty only when metadata confirms zero hits.
+- NewsAPI does not supply article categories; results without a category query have a null category. Structured contributors are preserved individually, while unstructured bylines remain one label. Publication IDs prefixed with `newsapi:` distinguish that integration from direct Guardian/NYT access.
+- Keys, quotas, archive access, CORS, and service availability depend on the provider. Application logs show safe provider/error codes; browser Network tools naturally show the direct requests and demo keys.
 
 ## Checks and builds
-
-Run every required automated check with:
 
 ```sh
 npm run check
 ```
 
-Or run them individually:
+This runs lint, all tests, TypeScript checks, and the frontend build. Individual commands are `npm run lint`, `npm test`, `npm run typecheck`, and `npm run build`. Use `npm run test:watch` during development.
 
-```sh
-npm run lint
-npm run typecheck
-npm test
-npm run build
-npm start
-```
+Provider tests mock fetch with synthetic upstream fixtures. UI tests mock the frontend provider layer with React Testing Library/user-event and jsdom. Tests need no real keys or network access. Coverage includes parameter mapping, normalization, partial failures, cancellation, dates, merging/deduplication, search/reset, preference semantics/persistence, storage errors, keyboard interactions, and stale responses.
 
-Tests use synthetic provider fixtures and mocked requests, so they need no API keys or network access. They cover parameter mapping, normalization, validation, merging, filtering, partial failures, feed rendering/retry behavior, combined search filters, reset, invalid dates, catalog failures, stale responses, preference semantics/persistence, unavailable storage, and separation of search from the personalized feed. Frontend tests use React Testing Library with jsdom.
-
-The user-flow tests additionally exercise keyboard navigation with Testing Library user-event, retry after a network failure, sorting and deduplication across preference requests, switching to search while the personalized feed is loading, and resetting search without changing saved preferences. Use `npm run test:watch` during development.
+The build outputs static files to `dist`. `npm start` previews the build at [http://localhost:3001](http://localhost:3001).
 
 ### Browser verification
 
-jsdom does not calculate visual layout. Check these flows in a real browser after `npm run dev`:
+jsdom does not calculate visual layout. In a real browser:
 
-- At 320px, 390px, 768px, and 1440px widths, confirm no horizontal scrolling, readable cards, and usable search/preference controls. The article grid uses one, two, or three columns as space allows.
-- Use Tab to reach **Skip to news**, then Enter to focus the main content. Continue through search inputs, submit with Enter, expand preferences, and toggle checkboxes with Space. Focus should remain visible.
-- Submit combined filters, reject an inverted date range, reset filters, and open an article at its original publication.
-- Save preferences, reload to confirm they persist, submit search to see independent results, return with **My feed**, and reset preferences.
-- With mocked or unavailable providers, check partial results, complete failure, retry recovery, empty results, and missing/failed image fallbacks. Automated tests cover these states without consuming API quotas.
+- Check 320px, 390px, 768px, and 1440px widths for horizontal overflow, readable cards, and usable forms. The grid uses one, two, or three columns as space allows.
+- Tab to **Skip to news**, press Enter, then navigate search controls. Submit with Enter, expand preferences, and toggle checkboxes with Space. Focus should be visible.
+- Submit combined filters, reject an inverted date range, reset, and open an original article.
+- Save preferences, reload, search independently, return to **My feed**, and reset preferences.
+- Use mocked provider responses to check partial/complete failure, retry recovery, empty results, and image fallbacks without spending API quotas.
 
-The build outputs frontend files to `dist/client` and the bundled server to `dist/server/index.js`. After `npm run build`, `npm start` serves the complete app at [http://localhost:3001](http://localhost:3001), or the port configured with `API_PORT`.
+## Assignment checklist
+
+| Requirement | Implementation |
+| --- | --- |
+| React with TypeScript | Vite frontend with strict TypeScript |
+| Three approved data sources | Direct NewsAPI, Guardian, and NYT adapters |
+| Keyword, date, category, source filtering | Submitted form with combined filters and date validation |
+| Preferred sources, categories, authors | Multiple selections saved in localStorage |
+| Mobile-responsive UI | Responsive forms and article grid |
+| Docker and running instructions | Multi-stage build and static Nginx container |
+| DRY, KISS, SOLID practices | Shared contracts/helpers and focused adapters/components |
