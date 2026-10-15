@@ -2,9 +2,8 @@
   "compilerOptions": {
     "target": "ES2022",
     "lib": ["ES2022"],
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "rewriteRelativeImportExtensions": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
     "types": ["node"],
     "strict": true,
     "noUnusedLocals": true,
@@ -12,8 +11,7 @@
     "noFallthroughCasesInSwitch": true,
     "verbatimModuleSyntax": true,
     "skipLibCheck": true,
-    "rootDir": ".",
-    "outDir": "dist"
+    "noEmit": true
   },
   "include": ["server", "shared"]
 }

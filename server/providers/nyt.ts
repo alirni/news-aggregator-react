@@ -1,6 +1,6 @@
-import type { Article, Category, NewsQuery, Source } from '../../shared/news.ts';
-import { apiKey, ProviderError, requestJson } from './http.ts';
-import { normalizeArticle, sectionCategory, text } from './normalize.ts';
+import type { Article, Category, NewsQuery, Source } from '../../shared/news';
+import { apiKey, ProviderError, requestJson } from './http';
+import { normalizeArticle, sectionCategory, text } from './normalize';
 
 export const nytSource: Source = { id: 'nyt', name: 'The New York Times', provider: 'nyt' };
 const sections: Record<Category, readonly string[]> = {

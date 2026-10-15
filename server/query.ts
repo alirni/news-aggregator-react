@@ -1,5 +1,5 @@
-import { categories } from '../shared/news.ts';
-import type { Category, NewsQuery } from '../shared/news.ts';
+import { categories } from '../shared/news';
+import type { Category, NewsQuery } from '../shared/news';
 
 export function parseNewsQuery(params: URLSearchParams): NewsQuery {
   const query: NewsQuery = {};

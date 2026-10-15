@@ -1,7 +1,7 @@
 import express from 'express';
 import { fileURLToPath } from 'node:url';
-import { getNews, getSources } from './news.ts';
-import { parseNewsQuery } from './query.ts';
+import { getNews, getSources } from './news';
+import { parseNewsQuery } from './query';
 
 export const app = express();
 app.disable('x-powered-by');

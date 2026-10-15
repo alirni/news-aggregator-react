@@ -98,7 +98,7 @@ Shared response types are in `shared/news.ts`. Provider adapters are in `server/
 
 - React hooks manage feed requests and browser preferences; native forms, fetch, and plain CSS keep the dependency surface small.
 - Each provider adapter owns its request parameters and response normalization. A shared request helper handles timeouts and safe errors, and the aggregation layer uses the same article interface for all providers.
-- Server imports reference the `.ts` source files. TypeScript rewrites relative import extensions to `.js` during compilation, so the output runs directly in Node and Docker. Vite and the test runner resolve extensionless imports.
+- Relative imports are extensionless throughout the source. TypeScript checks the server, and esbuild bundles its local modules into one JavaScript entry point for Node and Docker. Runtime packages such as Express stay external. Vite and the test runner also resolve extensionless imports.
 - Search controls, preferences, feed states, and article cards have separate responsibilities. Shared types, category values, and filtering helpers avoid duplicating provider-specific logic in components.
 - There is no database, authentication, client router, or article reader. Article links open the original publication.
 
@@ -155,4 +155,4 @@ jsdom does not calculate visual layout. Check these flows in a real browser afte
 - Save preferences, reload to confirm they persist, submit search to see independent results, return with **My feed**, and reset preferences.
 - With mocked or unavailable providers, check partial results, complete failure, retry recovery, empty results, and missing/failed image fallbacks. Automated tests cover these states without consuming API quotas.
 
-The build outputs frontend files to `dist/client`, the server to `dist/server`, and shared modules to `dist/shared`. After `npm run build`, `npm start` serves the complete app at [http://localhost:3001](http://localhost:3001), or the port configured with `API_PORT`.
+The build outputs frontend files to `dist/client` and the bundled server to `dist/server/index.js`. After `npm run build`, `npm start` serves the complete app at [http://localhost:3001](http://localhost:3001), or the port configured with `API_PORT`.

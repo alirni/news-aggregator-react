@@ -1,4 +1,4 @@
-import type { ProviderFailure } from '../../shared/news.ts';
+import type { ProviderFailure } from '../../shared/news';
 
 export class ProviderError extends Error {
   constructor(public readonly code: ProviderFailure['code'], message: string, public readonly status?: number) {
