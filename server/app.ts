@@ -1,4 +1,5 @@
 import express from 'express';
+import { fileURLToPath } from 'node:url';
 import { getNews, getSources } from './news.js';
 import { parseNewsQuery } from './query.js';
 
@@ -29,3 +30,6 @@ app.get('/api/sources', async (_request, response) => {
 app.use('/api', (_request, response) => {
   response.status(404).json({ error: 'API endpoint not found.' });
 });
+
+// In the compiled app this resolves to dist/client, independent of the working directory.
+app.use(express.static(fileURLToPath(new URL('../client/', import.meta.url))));

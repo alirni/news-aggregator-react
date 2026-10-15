@@ -7,5 +7,5 @@ if (!Number.isInteger(port) || port < 1 || port > 65535) {
 }
 
 app.listen(port, () => {
-  console.log(`API listening on http://localhost:${port}`);
+  console.log(`App and API listening on http://localhost:${port}`);
 });

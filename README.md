@@ -1,6 +1,6 @@
 # News Aggregator
 
-A frontend take-home assignment using React, TypeScript, and Vite, with a small Express API proxy. The three news integrations, responsive feed, search controls, and saved feed preferences are implemented.
+A frontend take-home assignment using React, TypeScript, and Vite, with a small Express API proxy. News comes from NewsAPI, The Guardian, and The New York Times. The frontend and API run together in one Docker container.
 
 The feed displays article images, publication, title, description, author, and UTC publication date. Titles open the original article in a new tab. It supports loading, empty results, retry, and partial provider failures, with image fallbacks and one/two/three-column layouts for mobile/tablet/desktop.
 
@@ -16,13 +16,46 @@ Author choices accumulate from articles retrieved during the current session and
 
 Search ignores all feed preferences, including an empty submitted search. Use **My feed** to return to your saved selections; the search form remains available independently.
 
+## Run with Docker
+
+Install and start Docker Desktop (or Docker Engine). From the project directory, create the environment file if you do not already have one:
+
+```sh
+cp .env.example .env
+```
+
+Fill in the three API keys listed below. Use plain `KEY=value` lines without surrounding quotes. Keys are supplied at runtime; `.env` is excluded from Git and the Docker build context.
+
+```sh
+docker build -t news-aggregator:local .
+docker run --rm --name news-aggregator --env-file .env -e API_PORT=3001 -p 127.0.0.1:3001:3001 news-aggregator:local
+```
+
+Open [http://localhost:3001](http://localhost:3001). Express serves the built frontend and `/api` from the same port. The explicit `API_PORT` override keeps the container port fixed even if you use a different port in local development. If port 3001 is occupied, use `-p 127.0.0.1:3002:3001` and open localhost:3002 instead.
+
+The foreground command displays server output. To view logs from another terminal:
+
+```sh
+docker logs --follow news-aggregator
+```
+
+Stop with Ctrl+C, or from another terminal:
+
+```sh
+docker stop news-aggregator
+```
+
+`--rm` removes the container when it stops. Preferences remain in browser localStorage for the same origin. After changing keys, stop and recreate the container with the same run command; rebuilding the image is unnecessary. Missing or invalid keys show provider failures while working providers continue to supply news.
+
+The Dockerfile uses a build stage for Vite/TypeScript and a runtime stage containing production dependencies and compiled output. The app runs as the unprivileged `node` user. Its health check calls `/api/health` without consuming news API requests.
+
 ## Local development
 
-Use Node.js 24 LTS (`nvm use` if you use nvm) and npm.
+Use Node.js 24 LTS (`nvm use` if you use nvm) and npm. Docker users do not need a local Node installation.
 
 ```sh
 npm ci
-cp .env.example .env
+cp .env.example .env # Only if .env does not already exist
 npm run dev
 ```
 
@@ -60,6 +93,26 @@ The server queries providers concurrently with a ten-second timeout per request,
 `GET /api/sources` returns `{ sources, failures }`: English-language NewsAPI publications plus The Guardian and The New York Times. The fixed publications remain available if the NewsAPI catalog fails. NewsAPI publication IDs are prefixed with `newsapi:` to distinguish their API route from the direct Guardian/NYT integrations.
 
 Shared response types are in `shared/news.ts`. Provider adapters are in `server/providers`; merging and filtering are in `server/news.ts`.
+
+## Implementation choices
+
+- React hooks manage feed requests and browser preferences; native forms, fetch, and plain CSS keep the dependency surface small.
+- Each provider adapter owns its request parameters and response normalization. A shared request helper handles timeouts and safe errors, and the aggregation layer uses the same article interface for all providers.
+- Search controls, preferences, feed states, and article cards have separate responsibilities. Shared types, category values, and filtering helpers avoid duplicating provider-specific logic in components.
+- There is no database, authentication, client router, or article reader. Article links open the original publication.
+
+## Assignment checklist
+
+| Requirement | Implementation |
+| --- | --- |
+| React with TypeScript | Vite client with strict TypeScript |
+| At least three approved sources | Separate NewsAPI, Guardian, and NYT integrations |
+| Keyword search | Submitted search form |
+| Date, category, and source filters | Combined filters with date validation and documented provider limits |
+| Preferred sources, categories, and authors | Multiple selections saved in localStorage, plus My feed navigation |
+| Mobile-responsive UI | Responsive controls and one/two/three-column article grid |
+| Docker and running instructions | Multi-stage Dockerfile and commands above |
+| DRY, KISS, SOLID practices | Shared contracts/helpers, focused adapters and components, small proxy |
 
 ### Coverage limitations
 
@@ -101,4 +154,4 @@ jsdom does not calculate visual layout. Check these flows in a real browser afte
 - Save preferences, reload to confirm they persist, submit search to see independent results, return with **My feed**, and reset preferences.
 - With mocked or unavailable providers, check partial results, complete failure, retry recovery, empty results, and missing/failed image fallbacks. Automated tests cover these states without consuming API quotas.
 
-The build outputs frontend files to `dist/client`, the server to `dist/server`, and shared modules to `dist/shared`. At this stage, `npm start` runs the API only. Serving the built frontend and Docker instructions will be added in the final packaging step.
+The build outputs frontend files to `dist/client`, the server to `dist/server`, and shared modules to `dist/shared`. After `npm run build`, `npm start` serves the complete app at [http://localhost:3001](http://localhost:3001), or the port configured with `API_PORT`.
