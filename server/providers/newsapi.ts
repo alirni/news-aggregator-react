@@ -1,6 +1,6 @@
-import type { Article, NewsQuery, Source } from '../../shared/news.js';
-import { apiKey, ProviderError, requestJson } from './http.js';
-import { normalizeArticle, text } from './normalize.js';
+import type { Article, NewsQuery, Source } from '../../shared/news.ts';
+import { apiKey, ProviderError, requestJson } from './http.ts';
+import { normalizeArticle, text } from './normalize.ts';
 
 interface NewsApiArticle {
   source?: { id?: string | null; name?: string | null };

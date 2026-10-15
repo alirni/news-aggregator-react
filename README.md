@@ -98,6 +98,7 @@ Shared response types are in `shared/news.ts`. Provider adapters are in `server/
 
 - React hooks manage feed requests and browser preferences; native forms, fetch, and plain CSS keep the dependency surface small.
 - Each provider adapter owns its request parameters and response normalization. A shared request helper handles timeouts and safe errors, and the aggregation layer uses the same article interface for all providers.
+- Server imports reference the `.ts` source files. TypeScript rewrites relative import extensions to `.js` during compilation, so the output runs directly in Node and Docker. Vite and the test runner resolve extensionless imports.
 - Search controls, preferences, feed states, and article cards have separate responsibilities. Shared types, category values, and filtering helpers avoid duplicating provider-specific logic in components.
 - There is no database, authentication, client router, or article reader. Article links open the original publication.
 

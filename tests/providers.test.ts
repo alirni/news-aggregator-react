@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fetchGuardian } from '../server/providers/guardian.js';
-import { fetchNewsApi, fetchNewsApiSources } from '../server/providers/newsapi.js';
-import { fetchNyt } from '../server/providers/nyt.js';
-import { requestJson } from '../server/providers/http.js';
-import { guardianArticle, newsApiArticle, nytArticle } from './fixtures.js';
+import { fetchGuardian } from '../server/providers/guardian';
+import { fetchNewsApi, fetchNewsApiSources } from '../server/providers/newsapi';
+import { fetchNyt } from '../server/providers/nyt';
+import { requestJson } from '../server/providers/http';
+import { guardianArticle, newsApiArticle, nytArticle } from './fixtures';
 
 const fetchMock = vi.fn<typeof fetch>();
 

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { getNews, getSources } from '../server/news.js';
-import { guardianArticle, newsApiArticle, nytArticle } from './fixtures.js';
+import { getNews, getSources } from '../server/news';
+import { guardianArticle, newsApiArticle, nytArticle } from './fixtures';
 
 const fetchMock = vi.fn<typeof fetch>();
 beforeEach(() => {

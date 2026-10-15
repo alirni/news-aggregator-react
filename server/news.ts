@@ -1,8 +1,8 @@
-import type { Article, NewsQuery, NewsResponse, Provider, ProviderFailure, SourcesResponse } from '../shared/news.js';
-import { fetchGuardian, guardianSource } from './providers/guardian.js';
-import { ProviderError } from './providers/http.js';
-import { fetchNewsApi, fetchNewsApiSources } from './providers/newsapi.js';
-import { fetchNyt, nytSource } from './providers/nyt.js';
+import type { Article, NewsQuery, NewsResponse, Provider, ProviderFailure, SourcesResponse } from '../shared/news.ts';
+import { fetchGuardian, guardianSource } from './providers/guardian.ts';
+import { ProviderError } from './providers/http.ts';
+import { fetchNewsApi, fetchNewsApiSources } from './providers/newsapi.ts';
+import { fetchNyt, nytSource } from './providers/nyt.ts';
 
 const providers = [
   { id: 'newsapi', fetch: fetchNewsApi },

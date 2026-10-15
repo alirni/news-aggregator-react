@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { parseNewsQuery } from '../server/query.js';
+import { parseNewsQuery } from '../server/query';
 
 it('parses and trims supported query parameters', () => {
   expect(parseNewsQuery(new URLSearchParams('q=+space+&category=science&source=guardian&from=2026-10-01&to=2026-10-14'))).toEqual({ q: 'space', category: 'science', source: 'guardian', from: '2026-10-01', to: '2026-10-14' });
