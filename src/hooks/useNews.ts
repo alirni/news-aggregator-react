@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
 import type { NewsQuery, NewsResponse } from '../../shared/news';
+import { loadNews } from '../lib/news';
+import { feedQueries, matchesPreferences } from '../lib/preferences';
+import type { Preferences } from '../lib/preferences';
 
 interface FeedState extends NewsResponse {
   status: 'loading' | 'success' | 'error';
@@ -7,9 +10,15 @@ interface FeedState extends NewsResponse {
 
 const loadingState: FeedState = { status: 'loading', articles: [], failures: [] };
 
-export function useNews() {
+interface FeedRequest {
+  queries: NewsQuery[];
+  preferences: Preferences | null;
+}
+
+export function useNews(initialPreferences: Preferences) {
   const [state, setState] = useState<FeedState>(loadingState);
-  const [request, setRequest] = useState<{ query: NewsQuery }>({ query: {} });
+  const [request, setRequest] = useState<FeedRequest>(() => ({ queries: feedQueries(initialPreferences), preferences: initialPreferences }));
+  const [knownAuthors, setKnownAuthors] = useState<string[]>([]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -18,15 +27,14 @@ export function useNews() {
 
     async function load() {
       try {
-        const params = new URLSearchParams();
-        for (const [key, value] of Object.entries(request.query)) {
-          if (value) params.set(key, value);
+        const data = await loadNews(request.queries, controller.signal);
+        if (active) {
+          const preferences = request.preferences;
+          setKnownAuthors((previous) => [...new Set([...previous, ...data.articles.flatMap((article) => article.authors)])].sort());
+          setState({ ...data, articles: preferences
+            ? data.articles.filter((article) => matchesPreferences(article, preferences))
+            : data.articles });
         }
-        const response = await fetch(`/api/news${params.size ? `?${params}` : ''}`, { signal: controller.signal });
-        if (!response.ok && response.status !== 502) throw new Error('Request failed');
-        const data = await response.json() as NewsResponse;
-        if (!Array.isArray(data.articles) || !Array.isArray(data.failures)) throw new Error('Invalid response');
-        if (active) setState({ ...data, status: response.ok ? 'success' : 'error' });
       } catch {
         if (active) setState({ status: 'error', articles: [], failures: [] });
       } finally {
@@ -44,12 +52,18 @@ export function useNews() {
 
   function search(query: NewsQuery) {
     setState(loadingState);
-    setRequest({ query });
+    setRequest({ queries: [query], preferences: null });
+  }
+
+  function showFeed(preferences: Preferences) {
+    setState(loadingState);
+    setRequest({ queries: feedQueries(preferences), preferences });
   }
 
   function retry() {
-    search(request.query);
+    setState(loadingState);
+    setRequest({ ...request });
   }
 
-  return { ...state, retry, search, isSearch: Object.keys(request.query).length > 0 };
+  return { ...state, retry, search, showFeed, knownAuthors, isSearch: request.preferences === null };
 }

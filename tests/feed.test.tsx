@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import App from '../src/App';
 import { ArticleCard } from '../src/components/ArticleCard';
@@ -35,7 +35,7 @@ it('shows loading until the request completes, then renders article details', as
   const link = screen.getByRole('link', { name: /A new discovery/ });
   expect(link).toHaveAttribute('href', article.url);
   expect(link).toHaveAttribute('rel', 'noopener noreferrer');
-  expect(screen.getByText('Alex Reporter')).toBeInTheDocument();
+  expect(within(screen.getByRole('article')).getByText('Alex Reporter')).toBeInTheDocument();
   expect(screen.getByText('Oct 14, 2026')).toHaveAttribute('datetime', article.publishedAt);
   expect(screen.getByText(article.description!)).toBeInTheDocument();
   expect(screen.getByText('1 story · Newest first')).toBeInTheDocument();

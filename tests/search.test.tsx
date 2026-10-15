@@ -29,8 +29,8 @@ it('waits for submission and sends combined filters with encoded, trimmed keywor
   render(<App />);
   await screen.findByRole('option', { name: 'BBC News (via NewsAPI)' });
   fireEvent.change(screen.getByLabelText('Keyword'), { target: { value: '  space & science  ' } });
-  fireEvent.change(screen.getByRole('combobox', { name: 'Category', exact: true }), { target: { value: 'science' } });
-  fireEvent.change(screen.getByRole('combobox', { name: 'Publication', exact: true }), { target: { value: 'newsapi:bbc-news' } });
+  fireEvent.change(screen.getByRole('combobox', { name: 'Category' }), { target: { value: 'science' } });
+  fireEvent.change(screen.getByRole('combobox', { name: 'Publication' }), { target: { value: 'newsapi:bbc-news' } });
   fireEvent.change(screen.getByLabelText('From'), { target: { value: '2026-10-01' } });
   fireEvent.change(screen.getByLabelText('To'), { target: { value: '2026-10-14' } });
   expect(news).toHaveBeenCalledTimes(1);
@@ -53,7 +53,7 @@ it('rejects an inverted date range without making a new request', async () => {
   expect(screen.getByLabelText('From')).toHaveAttribute('aria-invalid', 'true');
 });
 
-it('resets all draft and applied filters and returns to latest stories', async () => {
+it('resets all draft and applied filters and returns unrestricted search results', async () => {
   render(<App />);
   await screen.findByText('No stories to show');
   fireEvent.change(screen.getByLabelText('Keyword'), { target: { value: 'space' } });
@@ -64,7 +64,7 @@ it('resets all draft and applied filters and returns to latest stories', async (
   submit();
   await screen.findByRole('heading', { name: 'Search results' });
   fireEvent.click(screen.getByRole('button', { name: 'Reset filters' }));
-  await screen.findByRole('heading', { name: 'Latest stories' });
+  await screen.findByRole('heading', { name: 'Search results' });
   for (const label of ['Keyword', 'Category', 'Publication', 'From', 'To']) expect(screen.getByLabelText(label)).toHaveValue('');
   expect(news.mock.lastCall?.[0]).toBe('/api/news');
 });

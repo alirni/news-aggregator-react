@@ -2,6 +2,10 @@ import type { ProviderFailure, Provider } from '../../shared/news';
 import { useNews } from '../hooks/useNews';
 import { ArticleCard } from './ArticleCard';
 import { SearchFilters } from './SearchFilters';
+import { FeedPreferences } from './FeedPreferences';
+import { usePreferences } from '../hooks/usePreferences';
+import { useSources } from '../hooks/useSources';
+import type { Preferences } from '../lib/preferences';
 
 const providerNames: Record<Provider, string> = {
   newsapi: 'NewsAPI', guardian: 'The Guardian', nyt: 'The New York Times',
@@ -22,14 +26,31 @@ function FailureList({ failures }: { failures: ProviderFailure[] }) {
 }
 
 export function NewsFeed() {
-  const { status, articles, failures, retry, search, isSearch } = useNews();
+  const { preferences, storageError, save } = usePreferences();
+  const catalog = useSources();
+  const { status, articles, failures, retry, search, showFeed, knownAuthors, isSearch } = useNews(preferences);
+  const personalized = preferences.sources.length + preferences.categories.length + preferences.authors.length > 0;
+
+  function savePreferences(next: Preferences) {
+    save(next);
+    showFeed(next);
+  }
 
   return (
     <>
-      <SearchFilters onSearch={search} />
+      <SearchFilters onSearch={search} catalog={catalog} />
+      <FeedPreferences
+        key={JSON.stringify(preferences)}
+        preferences={preferences}
+        sources={catalog.sources}
+        authors={knownAuthors}
+        storageError={storageError}
+        onSave={savePreferences}
+      />
       <section aria-labelledby="feed-heading" aria-busy={status === 'loading'}>
         <div className="feed-heading">
-          <h2 id="feed-heading">{isSearch ? 'Search results' : 'Latest stories'}</h2>
+          <h2 id="feed-heading">{isSearch ? 'Search results' : 'My feed'}</h2>
+          {isSearch && <button type="button" className="button-secondary" onClick={() => showFeed(preferences)}>My feed</button>}
           {status === 'success' && <p>{articles.length} {articles.length === 1 ? 'story' : 'stories'} · Newest first</p>}
         </div>
         {status === 'loading' && (
@@ -61,7 +82,9 @@ export function NewsFeed() {
             {articles.length === 0 ? (
               <div className="feed-state" role="status">
                 <h3>No stories to show</h3>
-                <p>{isSearch ? 'No articles matched these filters in the available results. Try broader filters or reset your search.' : 'No articles were returned by the available sources. Try again shortly.'}</p>
+                <p>{isSearch ? 'No articles matched these filters in the available results. Try broader filters or reset your search.'
+                  : personalized ? 'No retrieved stories match your preferences. Try fewer preferences or reset them.'
+                    : 'No articles were returned by the available sources. Try again shortly.'}</p>
                 <button type="button" onClick={retry}>Try again</button>
               </div>
             ) : (

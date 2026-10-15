@@ -1,10 +1,20 @@
 # News Aggregator
 
-A frontend take-home assignment using React, TypeScript, and Vite, with a small Express API proxy. The three news integrations, responsive feed, and search controls are implemented. Saved feed preferences follow in the next step.
+A frontend take-home assignment using React, TypeScript, and Vite, with a small Express API proxy. The three news integrations, responsive feed, search controls, and saved feed preferences are implemented.
 
 The feed displays article images, publication, title, description, author, and UTC publication date. Titles open the original article in a new tab. It supports loading, empty results, retry, and partial provider failures, with image fallbacks and one/two/three-column layouts for mobile/tablet/desktop.
 
-Search by keyword and combine category, publication, and inclusive UTC date filters. Changes apply only when you submit **Search articles** (or press Enter); **Reset filters** clears the form and reloads the latest feed. Invalid date ranges are rejected before requesting articles. Retry repeats the submitted query, and responses from superseded requests cannot replace the current results. If publication choices fail to load, keyword/date/category search and the fixed publications remain usable.
+Search by keyword and combine category, publication, and inclusive UTC date filters. Changes apply only when you submit **Search articles** (or press Enter); **Reset filters** clears the form and reloads unrestricted search results. Invalid date ranges are rejected before requesting articles. Retry repeats the submitted query, and responses from superseded requests cannot replace the current results. If publication choices fail to load, keyword/date/category search and the fixed publications remain usable.
+
+## Personalized feed
+
+Open **Feed preferences**, choose multiple publications, categories, or authors, and select **Save preferences**. The app saves selections in localStorage and opens **My feed**. Matching uses OR within each group and AND across populated groups; an empty group is unrestricted. **Reset preferences** removes every restriction. If storage is unavailable, preferences still apply for the current session and the panel explains that they may not survive a reload.
+
+The feed requests each selected publication/category combination once, merges the responses, removes duplicate article URLs, and sorts newest first. Requests run only on save, reset, retry, or returning to **My feed**, rather than on each checkbox change. Selecting many publications/categories consumes more API requests and can encounter provider quotas; one failed combination does not hide successful results.
+
+Author choices accumulate from articles retrieved during the current session and include any saved authors. Author matching happens locally within the retrieved batches, not the providers' full archives. Missing authors cannot match an author preference. Saved authors and publication IDs remain selectable even if absent from the latest data or catalog.
+
+Search ignores all feed preferences, including an empty submitted search. Use **My feed** to return to your saved selections; the search form remains available independently.
 
 ## Local development
 
@@ -69,6 +79,6 @@ npm run build
 npm start
 ```
 
-Tests use synthetic provider fixtures and mocked requests, so they need no API keys or network access. They cover parameter mapping, normalization, validation, merging, filtering, partial failures, feed rendering/retry behavior, combined search filters, reset, invalid dates, catalog failures, and stale responses. Frontend tests use React Testing Library with jsdom.
+Tests use synthetic provider fixtures and mocked requests, so they need no API keys or network access. They cover parameter mapping, normalization, validation, merging, filtering, partial failures, feed rendering/retry behavior, combined search filters, reset, invalid dates, catalog failures, stale responses, preference semantics/persistence, unavailable storage, and separation of search from the personalized feed. Frontend tests use React Testing Library with jsdom.
 
 The build outputs frontend files to `dist/client`, the server to `dist/server`, and shared modules to `dist/shared`. At this stage, `npm start` runs the API only. Serving the built frontend and Docker instructions will be added in the final packaging step.

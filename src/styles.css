@@ -100,3 +100,18 @@ button:hover { background: #1d392c; }
   .filter-fields { grid-template-columns: minmax(0, 1fr); }
   .search-filters { padding: 1rem; }
 }
+
+.feed-preferences { background: #fff; border: 1px solid #dedfd6; border-radius: .35rem; padding: 1rem 1.25rem; margin-bottom: 2rem; }
+.feed-preferences summary { cursor: pointer; font-weight: 650; min-height: 28px; }
+.preference-groups { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin-top: 1rem; }
+.preference-groups fieldset { min-width: 0; margin: 0; padding: .75rem; border: 1px solid #dedfd6; border-radius: .25rem; }
+.preference-groups legend { padding-inline: .3rem; font-size: .85rem; font-weight: 650; }
+.preference-options { max-height: 18rem; overflow-y: auto; overflow-wrap: anywhere; }
+.preference-options label { display: flex; align-items: flex-start; gap: .6rem; min-height: 44px; padding-block: .5rem; font-size: .85rem; cursor: pointer; }
+.preference-options input { flex-shrink: 0; width: 1.1rem; height: 1.1rem; margin: .15rem 0 0; accent-color: #284d3c; }
+.preference-groups .filter-help { margin: 0 0 .5rem; }
+
+@media (max-width: 700px) {
+  .preference-groups { grid-template-columns: minmax(0, 1fr); }
+  .feed-preferences { padding-inline: 1rem; }
+}

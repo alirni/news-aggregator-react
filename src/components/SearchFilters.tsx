@@ -2,14 +2,14 @@ import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { categories } from '../../shared/news';
 import type { Category, NewsQuery } from '../../shared/news';
-import { useSources } from '../hooks/useSources';
+import type { useSources } from '../hooks/useSources';
 
 const emptyFilters = { q: '', from: '', to: '', category: '', source: '' };
 
-export function SearchFilters({ onSearch }: { onSearch: (query: NewsQuery) => void }) {
+export function SearchFilters({ onSearch, catalog }: { onSearch: (query: NewsQuery) => void; catalog: ReturnType<typeof useSources> }) {
   const [draft, setDraft] = useState(emptyFilters);
   const [error, setError] = useState('');
-  const { sources, status, retry } = useSources();
+  const { sources, status, retry } = catalog;
 
   function update(field: keyof typeof emptyFilters, value: string) {
     setDraft((previous) => ({ ...previous, [field]: value }));
