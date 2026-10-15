@@ -94,16 +94,38 @@ describe('The Guardian', () => {
 });
 
 describe('The New York Times', () => {
-  it('uses NYT date/section parameters and extracts structured author names', async () => {
+  it('omits the broken upstream source filter and filters publications locally', async () => {
+    fetchMock.mockResolvedValue(Response.json({ status: 'OK', response: { docs: [nytArticle, { ...nytArticle, source: 'AP' }] } }));
+    expect(await fetchNyt({})).toHaveLength(1);
+    expect(requestUrl().searchParams.has('fq')).toBe(false);
+  });
+
+  it('accepts the observed null-documents response when metadata confirms zero hits', async () => {
+    fetchMock.mockResolvedValue(Response.json({ status: 'OK', response: { docs: null, metadata: { hits: 0, offset: 0, time: 160 } } }));
+    expect(await fetchNyt({ q: 'no matching stories' })).toEqual([]);
+  });
+
+  it('still rejects null documents when results are expected', async () => {
+    fetchMock.mockResolvedValue(Response.json({ status: 'OK', response: { docs: null, metadata: { hits: 10 } } }));
+    await expect(fetchNyt({})).rejects.toMatchObject({ code: 'unavailable' });
+  });
+
+  it('uses NYT date parameters, filters sections locally, and extracts structured authors', async () => {
     fetchMock.mockResolvedValue(Response.json({ status: 'OK', response: { docs: [nytArticle] } }));
     const articles = await fetchNyt({ q: 'discovery', category: 'science', from: '2026-10-01', to: '2026-10-14' });
-    expect(Object.fromEntries(requestUrl().searchParams)).toMatchObject({ q: 'discovery', begin_date: '20261001', end_date: '20261014', fq: 'source:("The New York Times") AND section_name:("Science")', page: '0' });
+    expect(Object.fromEntries(requestUrl().searchParams)).toMatchObject({ q: 'discovery', begin_date: '20261001', end_date: '20261014', page: '0' });
+    expect(requestUrl().searchParams.has('fq')).toBe(false);
     expect(articles[0]).toMatchObject({ authors: ['Jane Q. Doe'], category: 'science', imageUrl: 'https://www.nytimes.com/images/2026/10/14/science.jpg' });
   });
 
   it('supports object-shaped multimedia and unstructured bylines', async () => {
     fetchMock.mockResolvedValue(Response.json({ status: 'OK', response: { docs: [{ ...nytArticle, byline: { original: 'By Jane Doe' }, multimedia: { default: { url: 'https://static01.nyt.com/photo.jpg' } } }] } }));
     expect((await fetchNyt({}))[0]).toMatchObject({ authors: ['Jane Doe'], imageUrl: 'https://static01.nyt.com/photo.jpg' });
+  });
+
+  it('excludes other sections instead of assigning them the requested category', async () => {
+    fetchMock.mockResolvedValue(Response.json({ status: 'OK', response: { docs: [nytArticle, { ...nytArticle, section_name: 'Sports' }] } }));
+    expect(await fetchNyt({ category: 'science' })).toHaveLength(1);
   });
 
   it('allows missing multimedia and bylines', async () => {

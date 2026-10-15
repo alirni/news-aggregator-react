@@ -10,6 +10,7 @@ const sections: Record<Category, readonly string[]> = {
 };
 
 interface NytArticle {
+  source?: string;
   headline?: { main?: string };
   web_url?: string;
   pub_date?: string;
@@ -27,14 +28,19 @@ export async function fetchNyt(query: NewsQuery): Promise<Article[]> {
   if (query.q) url.searchParams.set('q', query.q);
   if (query.from) url.searchParams.set('begin_date', query.from.replaceAll('-', ''));
   if (query.to) url.searchParams.set('end_date', query.to.replaceAll('-', ''));
-  let filter = 'source:("The New York Times")';
-  if (query.category) filter += ` AND section_name:(${sections[query.category].map((section) => `"${section}"`).join(' ')})`;
-  url.searchParams.set('fq', filter);
-  const data = await requestJson<{ status?: string; response?: { docs?: NytArticle[] } }>(url);
+  const data = await requestJson<{
+    status?: string;
+    response?: { docs?: NytArticle[] | null; metadata?: { hits?: number } };
+  }>(url);
+  if (data?.status === 'OK' && data.response?.docs === null && data.response.metadata?.hits === 0) return [];
   if (data?.status !== 'OK' || !Array.isArray(data.response?.docs)) {
     throw new ProviderError('unavailable', 'The New York Times returned an unexpected response.');
   }
-  return data.response.docs.filter(Boolean).map((item) => {
+  // Documented fq source/section filters currently return zero hits in live requests.
+  // Apply those constraints to the returned batch instead.
+  return data.response.docs.filter((item) => item?.source === 'The New York Times' &&
+    (!query.category || sectionCategory(item.section_name, sections) === query.category),
+  ).map((item) => {
     const people = item.byline?.person?.map((person) =>
       [person.firstname, person.middlename, person.lastname].filter(text).join(' '),
     ).filter(Boolean) ?? [];
@@ -47,7 +53,7 @@ export async function fetchNyt(query: NewsQuery): Promise<Article[]> {
       provider: 'nyt', source: nytSource,
       title: item.headline?.main ?? '', url: item.web_url ?? '', publishedAt: item.pub_date ?? '',
       authors: people.length ? people : byline ? [byline] : [],
-      category: query.category ?? sectionCategory(item.section_name, sections),
+      category: sectionCategory(item.section_name, sections),
       description: item.abstract,
       imageUrl: image ? new URL(image, 'https://www.nytimes.com/').href : undefined,
     });

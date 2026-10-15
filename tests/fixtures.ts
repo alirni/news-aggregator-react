@@ -23,6 +23,7 @@ export const guardianArticle = {
 };
 
 export const nytArticle = {
+  source: 'The New York Times',
   headline: { main: 'Science today' },
   web_url: 'https://www.nytimes.com/2026/10/14/science/discovery.html',
   pub_date: '2026-10-14T14:00:00Z',
