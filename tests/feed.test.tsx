@@ -16,7 +16,9 @@ const article: Article = {
 };
 const fetchMock = vi.fn<typeof fetch>();
 
-beforeEach(() => vi.stubGlobal('fetch', fetchMock));
+beforeEach(() => vi.stubGlobal('fetch', (url: string, options?: RequestInit) => url === '/api/sources'
+  ? Promise.resolve(Response.json({ sources: [], failures: [] }))
+  : fetchMock(url, options)));
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();

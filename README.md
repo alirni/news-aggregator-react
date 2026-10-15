@@ -1,8 +1,10 @@
 # News Aggregator
 
-A frontend take-home assignment using React, TypeScript, and Vite, with a small Express API proxy. The three news integrations and responsive feed are implemented. Search controls and saved preferences follow in the next steps.
+A frontend take-home assignment using React, TypeScript, and Vite, with a small Express API proxy. The three news integrations, responsive feed, and search controls are implemented. Saved feed preferences follow in the next step.
 
 The feed displays article images, publication, title, description, author, and UTC publication date. Titles open the original article in a new tab. It supports loading, empty results, retry, and partial provider failures, with image fallbacks and one/two/three-column layouts for mobile/tablet/desktop.
+
+Search by keyword and combine category, publication, and inclusive UTC date filters. Changes apply only when you submit **Search articles** (or press Enter); **Reset filters** clears the form and reloads the latest feed. Invalid date ranges are rejected before requesting articles. Retry repeats the submitted query, and responses from superseded requests cannot replace the current results. If publication choices fail to load, keyword/date/category search and the fixed publications remain usable.
 
 ## Local development
 
@@ -67,6 +69,6 @@ npm run build
 npm start
 ```
 
-Tests use synthetic provider fixtures and mocked requests, so they need no API keys or network access. They cover parameter mapping, normalization, validation, merging, filtering, partial failures, and feed rendering/retry behavior. Frontend tests use React Testing Library with jsdom.
+Tests use synthetic provider fixtures and mocked requests, so they need no API keys or network access. They cover parameter mapping, normalization, validation, merging, filtering, partial failures, feed rendering/retry behavior, combined search filters, reset, invalid dates, catalog failures, and stale responses. Frontend tests use React Testing Library with jsdom.
 
 The build outputs frontend files to `dist/client`, the server to `dist/server`, and shared modules to `dist/shared`. At this stage, `npm start` runs the API only. Serving the built frontend and Docker instructions will be added in the final packaging step.

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { NewsResponse } from '../../shared/news';
+import type { NewsQuery, NewsResponse } from '../../shared/news';
 
 interface FeedState extends NewsResponse {
   status: 'loading' | 'success' | 'error';
@@ -9,7 +9,7 @@ const loadingState: FeedState = { status: 'loading', articles: [], failures: [] 
 
 export function useNews() {
   const [state, setState] = useState<FeedState>(loadingState);
-  const [attempt, setAttempt] = useState(0);
+  const [request, setRequest] = useState<{ query: NewsQuery }>({ query: {} });
 
   useEffect(() => {
     const controller = new AbortController();
@@ -18,7 +18,11 @@ export function useNews() {
 
     async function load() {
       try {
-        const response = await fetch('/api/news', { signal: controller.signal });
+        const params = new URLSearchParams();
+        for (const [key, value] of Object.entries(request.query)) {
+          if (value) params.set(key, value);
+        }
+        const response = await fetch(`/api/news${params.size ? `?${params}` : ''}`, { signal: controller.signal });
         if (!response.ok && response.status !== 502) throw new Error('Request failed');
         const data = await response.json() as NewsResponse;
         if (!Array.isArray(data.articles) || !Array.isArray(data.failures)) throw new Error('Invalid response');
@@ -36,12 +40,16 @@ export function useNews() {
       clearTimeout(timeout);
       controller.abort();
     };
-  }, [attempt]);
+  }, [request]);
 
-  function retry() {
+  function search(query: NewsQuery) {
     setState(loadingState);
-    setAttempt((previous) => previous + 1);
+    setRequest({ query });
   }
 
-  return { ...state, retry };
+  function retry() {
+    search(request.query);
+  }
+
+  return { ...state, retry, search, isSearch: Object.keys(request.query).length > 0 };
 }
