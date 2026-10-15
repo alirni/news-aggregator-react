@@ -1,6 +1,8 @@
 # News Aggregator
 
-A frontend take-home assignment using React, TypeScript, and Vite, with a small Express API proxy. The project setup and three news integrations are implemented. The frontend is currently a placeholder; the feed UI follows in the next step.
+A frontend take-home assignment using React, TypeScript, and Vite, with a small Express API proxy. The three news integrations and responsive feed are implemented. Search controls and saved preferences follow in the next steps.
+
+The feed displays article images, publication, title, description, author, and UTC publication date. Titles open the original article in a new tab. It supports loading, empty results, retry, and partial provider failures, with image fallbacks and one/two/three-column layouts for mobile/tablet/desktop.
 
 ## Local development
 
@@ -63,6 +65,6 @@ npm run build
 npm start
 ```
 
-Tests use synthetic provider fixtures and mocked requests, so they need no API keys or network access. They cover parameter mapping, normalization, validation, merging, filtering, and partial failures.
+Tests use synthetic provider fixtures and mocked requests, so they need no API keys or network access. They cover parameter mapping, normalization, validation, merging, filtering, partial failures, and feed rendering/retry behavior. Frontend tests use React Testing Library with jsdom.
 
 The build outputs frontend files to `dist/client`, the server to `dist/server`, and shared modules to `dist/shared`. At this stage, `npm start` runs the API only. Serving the built frontend and Docker instructions will be added in the final packaging step.
