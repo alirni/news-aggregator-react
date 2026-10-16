@@ -14,6 +14,10 @@ export default tseslint.config(
     languageOptions: { globals: globals.browser },
   },
   {
+    files: ['public/**/*.js'],
+    languageOptions: { globals: globals.browser },
+  },
+  {
     files: ['tests/**/*.{ts,tsx}', '*.config.{ts,js}'],
     languageOptions: { globals: globals.node },
   },

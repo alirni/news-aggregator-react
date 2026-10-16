@@ -2,6 +2,8 @@
 
 A frontend-only React + TypeScript take-home assignment. The browser fetches articles directly from **NewsAPI**, **The Guardian**, and **The New York Times**. Vite handles development/builds, and Docker serves the static app with Nginx. There is no backend or API proxy.
 
+Source: [GitHub](https://github.com/alirni/news-aggregator-react). Published image: [Docker Hub](https://hub.docker.com/r/alirni/news-aggregator).
+
 ## Local development
 
 Use Node.js 24 LTS (`nvm use` if you use nvm) and npm.
@@ -31,24 +33,27 @@ This assignment targets **localhost development/testing**. [NewsAPI's free plan]
 
 ## Run with Docker
 
-Start Docker Desktop (or Docker Engine), and configure `.env` as above. The following commands use a POSIX shell (macOS/Linux). Load the development keys into the shell, then pass them to the frontend build:
+Start Docker Desktop (or Docker Engine). Create a `.env` file using the three variable names above and your own provider keys (or copy `.env.example` from this repository). Keep each value on one unquoted `KEY=value` line.
+
+Pull the published image and start it without building the project:
 
 ```sh
-set -a
-. ./.env
-set +a
-
-docker build -t news-aggregator:local \
-  --build-arg VITE_NEWS_API_KEY \
-  --build-arg VITE_GUARDIAN_API_KEY \
-  --build-arg VITE_NYT_API_KEY .
-
-docker run --rm --name news-aggregator -p 127.0.0.1:3001:80 news-aggregator:local
+docker pull alirni/news-aggregator:0.1.0
+docker run --rm --name news-aggregator \
+  --env-file .env -p 127.0.0.1:3001:80 alirni/news-aggregator:0.1.0
 ```
 
-Open [http://localhost:3001](http://localhost:3001). If port 3001 is occupied, change the host mapping to `-p 127.0.0.1:3002:80` and open localhost:3002.
+Open [http://localhost:3001](http://localhost:3001). If port 3001 is occupied, change the host mapping to `-p 127.0.0.1:3002:80` and open localhost:3002. The image supports Linux AMD64 and ARM64, including Docker Desktop on Intel and Apple Silicon. The `latest` tag is also available; `0.1.0` identifies this submission.
 
-The image has two stages: Node builds the frontend, then Nginx serves the compiled files. No Node server or proxy runs in the final container. `.env` is excluded from the build context; the explicitly supplied demo keys are embedded in the frontend during the build. **Rebuild the image after changing keys**; runtime `--env-file` cannot change an already-built frontend.
+To build the same image locally instead:
+
+```sh
+docker build -t news-aggregator:local .
+docker run --rm --name news-aggregator \
+  --env-file .env -p 127.0.0.1:3001:80 news-aggregator:local
+```
+
+The image has two stages: Node builds the frontend, then Nginx serves the compiled files. No Node server or proxy runs in the final container. `.env` is excluded from the build context, and the published image contains no provider keys. At startup, a small entrypoint script writes the supplied keys into `config.js`, which the frontend loads before starting. These keys are still visible in the running app's browser, as required for direct provider requests. Recreate the container with updated environment values to change keys; rebuilding is unnecessary. Missing keys produce provider-failure messages in the app.
 
 Stop with Ctrl+C, or from another terminal:
 
@@ -90,7 +95,7 @@ npm run check
 
 This runs lint, all tests, TypeScript checks, and the frontend build. Individual commands are `npm run lint`, `npm test`, `npm run typecheck`, and `npm run build`. Use `npm run test:watch` during development.
 
-Provider tests mock fetch with synthetic upstream fixtures. UI tests mock the frontend provider layer with React Testing Library/user-event and jsdom. Tests need no real keys or network access. Coverage includes parameter mapping, normalization, partial failures, cancellation, dates, merging/deduplication, search/reset, preference semantics/persistence, storage errors, keyboard interactions, and stale responses.
+Provider tests mock fetch with synthetic upstream fixtures. UI tests mock the frontend provider layer with React Testing Library/user-event and jsdom. Tests need no real keys or network access. Coverage includes runtime API-key configuration, parameter mapping, normalization, partial failures, cancellation, dates, merging/deduplication, search/reset, preference semantics/persistence, storage errors, keyboard interactions, and stale responses.
 
 The build outputs static files to `dist`. `npm start` previews the build at [http://localhost:3001](http://localhost:3001).
 

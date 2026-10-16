@@ -8,13 +8,20 @@ export class ProviderError extends Error {
 
 type KeyName = 'VITE_NEWS_API_KEY' | 'VITE_GUARDIAN_API_KEY' | 'VITE_NYT_API_KEY';
 
+declare global {
+  interface Window {
+    __NEWS_CONFIG__?: Partial<Record<KeyName, string>>;
+  }
+}
+
 export function apiKey(name: KeyName): string {
   const keys = {
     VITE_NEWS_API_KEY: import.meta.env.VITE_NEWS_API_KEY,
     VITE_GUARDIAN_API_KEY: import.meta.env.VITE_GUARDIAN_API_KEY,
     VITE_NYT_API_KEY: import.meta.env.VITE_NYT_API_KEY,
   };
-  const key = keys[name]?.trim();
+  const runtime = typeof window === 'undefined' ? undefined : window.__NEWS_CONFIG__;
+  const key = (runtime?.[name] ?? keys[name])?.trim();
   if (!key) throw new ProviderError('missing_key', 'API key is not configured.');
   return key;
 }
