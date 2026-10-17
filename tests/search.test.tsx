@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import App from '../src/App';
+import { renderApp } from './helpers/renderApp';
 import { getNews, getSources } from '../src/api/news';
 import type { NewsResponse, Source } from '../shared/news';
 
@@ -29,7 +29,7 @@ function submit() {
 }
 
 it('waits for submission and passes combined filters with trimmed keywords', async () => {
-  render(<App />);
+  renderApp();
   await screen.findByRole('option', { name: 'BBC News (via NewsAPI)' });
   fireEvent.change(screen.getByLabelText('Keyword'), { target: { value: '  space & science  ' } });
   fireEvent.change(screen.getByRole('combobox', { name: 'Category' }), { target: { value: 'science' } });
@@ -45,7 +45,7 @@ it('waits for submission and passes combined filters with trimmed keywords', asy
 });
 
 it('rejects an inverted date range without making a new request', async () => {
-  render(<App />);
+  renderApp();
   await screen.findByText('No stories to show');
   fireEvent.change(screen.getByLabelText('From'), { target: { value: '2026-10-14' } });
   fireEvent.change(screen.getByLabelText('To'), { target: { value: '2026-10-01' } });
@@ -56,7 +56,7 @@ it('rejects an inverted date range without making a new request', async () => {
 });
 
 it('resets all draft and applied filters and returns unrestricted search results', async () => {
-  render(<App />);
+  renderApp();
   await screen.findByText('No stories to show');
   fireEvent.change(screen.getByLabelText('Keyword'), { target: { value: 'space' } });
   fireEvent.change(screen.getByLabelText('Category'), { target: { value: 'science' } });
@@ -72,7 +72,7 @@ it('resets all draft and applied filters and returns unrestricted search results
 });
 
 it('shows guidance when a search has no matching articles', async () => {
-  render(<App />);
+  renderApp();
   fireEvent.change(screen.getByLabelText('Keyword'), { target: { value: 'no matches' } });
   submit();
   expect(await screen.findByText(/Try broader filters or reset your search/)).toBeInTheDocument();
@@ -81,7 +81,7 @@ it('shows guidance when a search has no matching articles', async () => {
 it('aborts superseded requests and ignores stale responses even if fetch completes', async () => {
   let resolveOld!: (response: NewsResponse) => void;
   news.mockImplementationOnce(() => new Promise((resolve) => { resolveOld = resolve; }));
-  render(<App />);
+  renderApp();
   const oldSignal = news.mock.calls[0][1];
   fireEvent.change(screen.getByLabelText('Keyword'), { target: { value: 'latest search' } });
   submit();
@@ -93,7 +93,7 @@ it('aborts superseded requests and ignores stale responses even if fetch complet
 });
 
 it('retries the submitted query, not unsubmitted changes', async () => {
-  render(<App />);
+  renderApp();
   await screen.findByText('No stories to show');
   news.mockRejectedValueOnce(new Error('Network error'));
   fireEvent.change(screen.getByLabelText('Keyword'), { target: { value: 'space' } });
@@ -107,7 +107,7 @@ it('retries the submitted query, not unsubmitted changes', async () => {
 
 it('keeps search usable when publication loading fails and supports catalog retry', async () => {
   sources.mockRejectedValueOnce(new Error('Network error'));
-  render(<App />);
+  renderApp();
   await screen.findByText('Some publication choices are unavailable. You can still search.');
   expect(screen.getByRole('option', { name: 'The Guardian' })).toBeInTheDocument();
   fireEvent.change(screen.getByLabelText('Keyword'), { target: { value: 'space' } });

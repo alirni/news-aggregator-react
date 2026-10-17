@@ -44,3 +44,11 @@ export function matchesPreferences(article: Article, preferences: Preferences): 
       preferences.authors.some((selected) => selected.toLowerCase() === author.toLowerCase()),
     ));
 }
+
+export function readPreferences() {
+  try {
+    return { preferences: parsePreferences(localStorage.getItem(preferencesKey)), storageError: false };
+  } catch {
+    return { preferences: emptyPreferences, storageError: true };
+  }
+}

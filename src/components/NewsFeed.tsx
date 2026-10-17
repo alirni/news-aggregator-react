@@ -3,7 +3,7 @@ import { useNews } from '../hooks/useNews';
 import { ArticleCard } from './ArticleCard';
 import { SearchFilters } from './SearchFilters';
 import { FeedPreferences } from './FeedPreferences';
-import { usePreferences } from '../hooks/usePreferences';
+import { usePreferences } from '../stores/preferences';
 import { useSources } from '../hooks/useSources';
 import type { Preferences } from '../lib/preferences';
 

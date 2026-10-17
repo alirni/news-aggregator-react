@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, renderHook, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import App from '../src/App';
+import { renderApp } from './helpers/renderApp';
 import { getNews, getSources } from '../src/api/news';
 import type { Article, NewsResponse } from '../shared/news';
 import { emptyPreferences, preferencesKey } from '../src/lib/preferences';
+import { usePreferences } from '../src/stores/preferences';
 
 vi.mock('../src/api/news', () => ({ getNews: vi.fn(), getSources: vi.fn() }));
 
@@ -40,7 +41,7 @@ function save() {
 }
 
 it('saves selected groups, requests each combination once, and filters the merged feed', async () => {
-  render(<App />);
+  renderApp();
   await screen.findAllByRole('article');
   openPreferences();
   for (const name of ['The Guardian', 'The New York Times', 'Science', 'Sports', 'Alex']) {
@@ -57,7 +58,7 @@ it('saves selected groups, requests each combination once, and filters the merge
 
 it('restores preferences on mount, preserves saved authors, and resets them', async () => {
   localStorage.setItem(preferencesKey, JSON.stringify({ sources: ['guardian'], categories: ['science'], authors: ['Saved author'] }));
-  render(<App />);
+  renderApp();
   await screen.findByText(/No retrieved stories match your preferences/);
   expect(news.mock.calls[0][0]).toEqual({ source: 'guardian', category: 'science' });
   openPreferences();
@@ -71,7 +72,7 @@ it('restores preferences on mount, preserves saved authors, and resets them', as
 
 it('keeps search independent of preferences and restores them with My feed', async () => {
   localStorage.setItem(preferencesKey, JSON.stringify({ ...emptyPreferences, authors: ['Alex'] }));
-  render(<App />);
+  renderApp();
   await waitFor(() => expect(screen.getAllByRole('article')).toHaveLength(2));
   // Even an empty submitted search must bypass feed preferences.
   fireEvent.click(screen.getByRole('button', { name: 'Search articles' }));
@@ -85,11 +86,11 @@ it('keeps search independent of preferences and restores them with My feed', asy
 
 it('recovers from corrupt preferences and from unavailable storage reads', async () => {
   localStorage.setItem(preferencesKey, '{broken');
-  const first = render(<App />);
+  const first = renderApp();
   await waitFor(() => expect(screen.getAllByRole('article')).toHaveLength(3));
   first.unmount();
   vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('Storage blocked'); });
-  render(<App />);
+  renderApp();
   await screen.findAllByRole('article');
   openPreferences();
   expect(screen.getByText(/Browser storage is unavailable/)).toBeInTheDocument();
@@ -97,7 +98,7 @@ it('recovers from corrupt preferences and from unavailable storage reads', async
 
 it('applies preferences for the session when storage writes fail', async () => {
   vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('Quota exceeded'); });
-  render(<App />);
+  renderApp();
   await screen.findAllByRole('article');
   openPreferences();
   fireEvent.click(screen.getByRole('checkbox', { name: 'Alex' }));
@@ -114,15 +115,31 @@ it('retains successful combinations when another selected publication fails', as
     const body: NewsResponse = { articles: isNyt ? [] : [articles[0]], failures: isNyt ? [{ provider: 'nyt', code: 'unauthorized', message: 'Rejected key' }] : [] };
     return (body);
   });
-  render(<App />);
+  renderApp();
   expect(await screen.findByRole('article')).toBeInTheDocument();
   expect(screen.getByText('Some sources are unavailable')).toBeInTheDocument();
 });
 
 it('retains saved publication selections when the catalog no longer contains them', async () => {
   localStorage.setItem(preferencesKey, JSON.stringify({ ...emptyPreferences, sources: ['newsapi:saved-source'] }));
-  render(<App />);
+  renderApp();
   await screen.findByText(/No retrieved stories match your preferences/);
   openPreferences();
   expect(screen.getByRole('checkbox', { name: 'newsapi:saved-source (saved)' })).toBeChecked();
+});
+
+it('shares saved preferences between subscribers and keeps them after a subscriber remounts', () => {
+  usePreferences.setState({ preferences: emptyPreferences, storageError: false });
+  const first = renderHook(() => usePreferences((state) => state.preferences));
+  const second = renderHook(() => usePreferences((state) => state.preferences));
+  const next = { ...emptyPreferences, authors: ['Alex'] };
+
+  act(() => usePreferences.getState().save(next));
+
+  expect(first.result.current).toEqual(next);
+  expect(second.result.current).toEqual(next);
+  expect(JSON.parse(localStorage.getItem(preferencesKey)!)).toEqual(next);
+  first.unmount();
+  const remounted = renderHook(() => usePreferences((state) => state.preferences));
+  expect(remounted.result.current).toEqual(next);
 });

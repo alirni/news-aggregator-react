@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import App from '../src/App';
+import { renderApp } from './helpers/renderApp';
 import { getNews, getSources } from '../src/api/news';
 import type { Article, NewsResponse } from '../shared/news';
 import { emptyPreferences, preferencesKey } from '../src/lib/preferences';
@@ -38,7 +38,7 @@ async function tabTo(user: ReturnType<typeof userEvent.setup>, target: HTMLEleme
 
 it('supports keyboard search, labeled controls, and keyboard preference selection', async () => {
   const user = userEvent.setup();
-  render(<App />);
+  renderApp();
   await screen.findAllByRole('article');
   await user.tab();
   expect(screen.getByRole('link', { name: 'Skip to news' })).toHaveFocus();
@@ -75,7 +75,7 @@ it('recovers a personalized feed from a network failure while keeping sorted, un
     return ({ articles: [...articles, articles[0]], failures: [] });
   });
   const user = userEvent.setup();
-  render(<App />);
+  renderApp();
   await screen.findByText('Some sources are unavailable');
   expect(screen.getAllByRole('article')).toHaveLength(2);
   expect(screen.getAllByRole('article')[0]).toHaveTextContent('Newer sports story');
@@ -91,7 +91,7 @@ it('ignores a late personalized response after the user switches to search', asy
   let resolveOld!: (response: NewsResponse) => void;
   news.mockImplementationOnce(() => new Promise((resolve) => { resolveOld = resolve; }));
   const user = userEvent.setup();
-  render(<App />);
+  renderApp();
   await user.type(screen.getByLabelText('Keyword'), 'sports{Enter}');
   await screen.findAllByRole('article');
   expect(news.mock.calls[0][1]?.aborted).toBe(true);
@@ -103,7 +103,7 @@ it('ignores a late personalized response after the user switches to search', asy
 it('resets search without applying or deleting saved feed preferences', async () => {
   localStorage.setItem(preferencesKey, JSON.stringify({ ...emptyPreferences, authors: ['Alex'] }));
   const user = userEvent.setup();
-  render(<App />);
+  renderApp();
   await waitFor(() => expect(screen.getAllByRole('article')).toHaveLength(1));
   await user.type(screen.getByLabelText('Keyword'), 'sports{Enter}');
   await waitFor(() => expect(screen.getAllByRole('article')).toHaveLength(2));

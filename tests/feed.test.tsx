@@ -2,7 +2,7 @@
 import '@testing-library/jest-dom/vitest';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import App from '../src/App';
+import { renderApp } from './helpers/renderApp';
 import { getNews, getSources } from '../src/api/news';
 import { ArticleCard } from '../src/components/ArticleCard';
 import type { Article, NewsResponse } from '../shared/news';
@@ -30,7 +30,7 @@ afterEach(() => {
 it('shows loading until the request completes, then renders article details', async () => {
   let resolve!: (response: NewsResponse) => void;
   news.mockReturnValue(new Promise((done) => { resolve = done; }));
-  render(<App />);
+  renderApp();
   expect(screen.getByRole('status')).toHaveTextContent('Loading the latest stories');
   await act(async () => resolve({ articles: [article], failures: [] }));
   const link = screen.getByRole('link', { name: /A new discovery/ });
@@ -45,7 +45,7 @@ it('shows loading until the request completes, then renders article details', as
 
 it('keeps articles visible during partial provider failure', async () => {
   news.mockResolvedValue({ articles: [article], failures: [{ provider: 'nyt', code: 'unauthorized', message: 'API key rejected' }] });
-  render(<App />);
+  renderApp();
   expect(await screen.findByText('Some sources are unavailable')).toBeInTheDocument();
   expect(screen.getByRole('article')).toBeInTheDocument();
   expect(screen.getByText('The New York Times:')).toBeInTheDocument();
@@ -55,7 +55,7 @@ it('keeps articles visible during partial provider failure', async () => {
 
 it('shows a useful empty state', async () => {
   news.mockResolvedValue({ articles: [], failures: [] });
-  render(<App />);
+  renderApp();
   expect(await screen.findByText('No stories to show')).toBeInTheDocument();
   expect(screen.queryByRole('article')).not.toBeInTheDocument();
 });
@@ -63,7 +63,7 @@ it('shows a useful empty state', async () => {
 it('retries a failed request and replaces the error with articles', async () => {
   news.mockRejectedValueOnce(new Error('Network failure'))
     .mockResolvedValueOnce({ articles: [article], failures: [] });
-  render(<App />);
+  renderApp();
   expect(await screen.findByRole('alert')).toHaveTextContent('We couldn’t load the news');
   fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
   expect(await screen.findByRole('article')).toBeInTheDocument();
@@ -73,14 +73,14 @@ it('retries a failed request and replaces the error with articles', async () => 
 
 it('shows total provider failure as an error rather than empty results', async () => {
   news.mockResolvedValue({ articles: [], failures: (['newsapi', 'guardian', 'nyt'] as const).map((provider) => ({ provider, code: 'rate_limited', message: 'Quota exceeded' })) });
-  render(<App />);
+  renderApp();
   expect(await screen.findByRole('alert')).toHaveTextContent('Request limit reached');
   expect(screen.queryByText('No stories to show')).not.toBeInTheDocument();
 });
 
 it('aborts a pending request when the feed unmounts', () => {
   news.mockReturnValue(new Promise(() => {}));
-  const { unmount } = render(<App />);
+  const { unmount } = renderApp();
   const signal = news.mock.calls[0][1];
   unmount();
   expect(signal?.aborted).toBe(true);
@@ -91,7 +91,7 @@ it('ends loading with a retryable error when the request times out', async () =>
   news.mockImplementation((_url, options) => new Promise((_resolve, reject) => {
     options?.addEventListener('abort', () => reject(new Error('Aborted')));
   }));
-  render(<App />);
+  renderApp();
   await act(() => vi.advanceTimersByTimeAsync(15_000));
   expect(screen.getByRole('alert')).toBeInTheDocument();
 });

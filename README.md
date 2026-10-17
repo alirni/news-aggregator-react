@@ -75,8 +75,9 @@ docker stop news-aggregator
 ## Structure and implementation choices
 
 - `src/api/providers` contains a focused adapter per provider plus shared request/normalization helpers. `src/api/news.ts` fetches the selected providers concurrently, combines their results, and records safe provider failures.
-- `src/lib` handles preference matching and combining preference requests. Hooks manage requests, saved preferences, and the publication catalog; separate components handle forms, feed states, and article cards.
-- `shared/news.ts` defines the common article/source/query types and categories. Imports are extensionless, resolved by Vite and the test runner. React state, native fetch/forms, plain CSS, and a small set of shared helpers keep the app simple.
+- `src/stores/preferences.ts` is one small Zustand store for saved preferences and the save action. It reuses the existing localStorage format and error handling; draft form values and network state remain in React hooks.
+- `src/lib` handles preference matching and combining preference requests. Hooks manage requests and the publication catalog; separate components handle forms, feed states, and article cards.
+- `shared/news.ts` defines the common article/source/query types and categories. Imports are extensionless, resolved by Vite and the test runner. React state, a single Zustand store, native fetch/forms, plain CSS, and a small set of shared helpers keep the app simple.
 - There is no database, authentication, router, article reader, or backend. HTTP statuses belong to upstream provider requests; the app has no `/api/news`, `/api/sources`, or `/api/health` endpoints.
 
 ## Provider limitations
